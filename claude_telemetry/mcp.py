@@ -3,12 +3,12 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def load_mcp_config(config_path: Optional[Path] = None) -> Optional[Dict[str, Any]]:
+def load_mcp_config(config_path: Path | None = None) -> dict[str, Any] | None:
     """
     Load MCP server configuration from .mcp.json file.
 
@@ -30,7 +30,7 @@ def load_mcp_config(config_path: Optional[Path] = None) -> Optional[Dict[str, An
         return None
 
     try:
-        with open(config_path) as f:
+        with config_path.open() as f:
             config = json.load(f)
 
         # Extract mcpServers section
@@ -52,18 +52,18 @@ def load_mcp_config(config_path: Optional[Path] = None) -> Optional[Dict[str, An
 
             sdk_config[name] = sdk_server
 
+    except json.JSONDecodeError:
+        logger.exception("Invalid JSON in MCP config")
+        return None
+    except Exception:
+        logger.exception("Failed to load MCP config")
+        return None
+    else:
         logger.info(f"Loaded {len(sdk_config)} MCP server(s) from {config_path}")
         return sdk_config
 
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in MCP config: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Failed to load MCP config: {e}")
-        return None
 
-
-def validate_mcp_server(server_config: Dict[str, Any]) -> bool:
+def validate_mcp_server(server_config: dict[str, Any]) -> bool:
     """
     Validate an MCP server configuration.
 

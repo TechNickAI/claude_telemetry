@@ -1,10 +1,8 @@
 """Command-line interface for Claude Telemetry."""
 
-import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import List, Optional
 
 import typer
 from dotenv import load_dotenv
@@ -12,7 +10,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from claude_telemetry.runner import run_agent_interactive, run_agent_with_telemetry
+from claude_telemetry import __version__
 from claude_telemetry.sync import (
     run_agent_interactive_sync,
     run_agent_with_telemetry_sync,
@@ -55,7 +53,7 @@ def main(
         "-s",
         help="System prompt for Claude",
     ),
-    tools: list[str] | None = typer.Option(
+    tools: list[str] | None = typer.Option(  # noqa: B008
         None,
         "--tool",
         "-t",
@@ -154,7 +152,7 @@ def main(
             console.print("\n[yellow]Interrupted by user[/yellow]")
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
     else:
         # Single prompt mode
@@ -174,7 +172,7 @@ def main(
             console.print("\n[yellow]Interrupted by user[/yellow]")
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
 
 def _show_startup_banner(model: str, tools: list[str] | None, use_mcp: bool) -> None:
@@ -214,8 +212,6 @@ def _show_startup_banner(model: str, tools: list[str] | None, use_mcp: bool) -> 
 @app.command("version")
 def version() -> None:
     """Show version information."""
-    from claude_telemetry import __version__
-
     console.print(f"claudia version {__version__}")
 
 

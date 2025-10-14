@@ -29,11 +29,7 @@ click==8.3.0
 executing==2.2.1
     # via logfire
 googleapis-common-protos==1.70.0
-    # via
-    #   opentelemetry-exporter-otlp-proto-grpc
-    #   opentelemetry-exporter-otlp-proto-http
-grpcio==1.75.1
-    # via opentelemetry-exporter-otlp-proto-grpc
+    # via opentelemetry-exporter-otlp-proto-http
 h11==0.16.0
     # via
     #   httpcore
@@ -66,35 +62,26 @@ mdurl==0.1.2
 opentelemetry-api==1.37.0
     # via
     #   -r requirements/requirements.in
-    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-instrumentation
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp==1.37.0
-    # via -r requirements/requirements.in
 opentelemetry-exporter-otlp-proto-common==1.37.0
-    # via
-    #   opentelemetry-exporter-otlp-proto-grpc
-    #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-grpc==1.37.0
-    # via opentelemetry-exporter-otlp
+    # via opentelemetry-exporter-otlp-proto-http
 opentelemetry-exporter-otlp-proto-http==1.37.0
     # via
+    #   -r requirements/requirements.in
     #   logfire
-    #   opentelemetry-exporter-otlp
 opentelemetry-instrumentation==0.58b0
     # via logfire
 opentelemetry-proto==1.37.0
     # via
     #   opentelemetry-exporter-otlp-proto-common
-    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
 opentelemetry-sdk==1.37.0
     # via
     #   -r requirements/requirements.in
     #   logfire
-    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
 opentelemetry-semantic-conventions==0.58b0
     # via
@@ -102,8 +89,6 @@ opentelemetry-semantic-conventions==0.58b0
     #   opentelemetry-sdk
 packaging==25.0
     # via opentelemetry-instrumentation
-prompt-toolkit==3.0.52
-    # via -r requirements/requirements.in
 protobuf==6.32.1
     # via
     #   googleapis-common-protos
@@ -153,10 +138,8 @@ typer==0.19.2
     # via -r requirements/requirements.in
 typing-extensions==4.15.0
     # via
-    #   grpcio
     #   logfire
     #   opentelemetry-api
-    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
@@ -172,8 +155,6 @@ urllib3==2.5.0
     # via requests
 uvicorn==0.37.0
     # via mcp
-wcwidth==0.2.14
-    # via prompt-toolkit
 wrapt==1.17.3
     # via opentelemetry-instrumentation
 zipp==3.23.0

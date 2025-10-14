@@ -1,10 +1,10 @@
 """Claude SDK hooks for telemetry capture."""
 
+import json
 import logging
 import time
 from contextvars import ContextVar
-from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from opentelemetry import trace
 
@@ -17,9 +17,13 @@ from claude_telemetry.telemetry import safe_span_operation
 logger = logging.getLogger(__name__)
 
 # Context variables to track spans across async boundaries
-current_session_span: ContextVar[Optional[Any]] = ContextVar("session_span", default=None)
-current_tool_spans: ContextVar[Dict[str, Any]] = ContextVar("tool_spans", default={})
-session_metrics: ContextVar[Dict[str, Any]] = ContextVar("session_metrics", default={})
+current_session_span: ContextVar[Any | None] = ContextVar("session_span", default=None)
+current_tool_spans: ContextVar[dict[str, Any] | None] = ContextVar(
+    "tool_spans", default=None
+)
+session_metrics: ContextVar[dict[str, Any] | None] = ContextVar(
+    "session_metrics", default=None
+)
 
 
 class TelemetryHooks:
@@ -36,7 +40,8 @@ class TelemetryHooks:
     def _detect_logfire(self) -> bool:
         """Check if Logfire is configured."""
         try:
-            import logfire
+            import logfire  # noqa: F401, PLC0415
+
             return trace.get_tracer_provider() is not None
         except ImportError:
             return False
@@ -44,10 +49,10 @@ class TelemetryHooks:
     @safe_span_operation
     async def on_user_prompt_submit(
         self,
-        input_data: Dict[str, Any],
-        tool_use_id: Optional[str],
+        input_data: dict[str, Any],
+        tool_use_id: str | None,
         context: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Hook called when user submits a prompt.
 
@@ -94,9 +99,9 @@ class TelemetryHooks:
     async def on_pre_tool_use(
         self,
         tool_name: str,
-        tool_input: Dict[str, Any],
+        tool_input: dict[str, Any],
         context: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Hook called before tool execution.
 
@@ -113,7 +118,6 @@ class TelemetryHooks:
             span = self.tracer.start_span(f"tool.{tool_name}")
             span.set_attribute("tool.name", tool_name)
             # Add tool inputs as JSON string for non-Logfire
-            import json
             span.set_attribute("tool.input", json.dumps(tool_input))
 
         # Store span for post-tool hook
@@ -142,8 +146,8 @@ class TelemetryHooks:
         tool_name: str,
         tool_output: Any,
         context: Any,
-        tool_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tool_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Hook called after tool execution.
 
@@ -166,8 +170,11 @@ class TelemetryHooks:
 
         if span:
             # Add output attribute
-            import json
-            output_str = json.dumps(tool_output) if isinstance(tool_output, (dict, list)) else str(tool_output)
+            output_str = (
+                json.dumps(tool_output)
+                if isinstance(tool_output, (dict, list))
+                else str(tool_output)
+            )
             # Truncate very long outputs
             if len(output_str) > 1000:
                 output_str = output_str[:1000] + "..."
@@ -196,7 +203,7 @@ class TelemetryHooks:
         self,
         message: Any,
         context: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Hook called when assistant message is complete.
 
@@ -211,7 +218,9 @@ class TelemetryHooks:
 
                 metrics["input_tokens"] += input_tokens
                 metrics["output_tokens"] += output_tokens
-                metrics["total_tokens"] = metrics["input_tokens"] + metrics["output_tokens"]
+                metrics["total_tokens"] = (
+                    metrics["input_tokens"] + metrics["output_tokens"]
+                )
                 metrics["turns"] += 1
 
                 # Update parent span
@@ -255,7 +264,9 @@ class TelemetryHooks:
                     span,
                     model=model,
                     messages=self.messages,
-                    response=self.messages[-1]["content"] if self.messages and self.messages[-1]["role"] == "assistant" else None,
+                    response=self.messages[-1]["content"]
+                    if self.messages and self.messages[-1]["role"] == "assistant"
+                    else None,
                     tools_used=self.tools_used,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
@@ -269,7 +280,8 @@ class TelemetryHooks:
             duration = time.time() - metrics.get("start_time", time.time())
             logger.info("  🎉 Agent completed")
             logger.info(
-                f"\nSession completed - Tokens: {input_tokens} in, {output_tokens} out, "
+                f"\nSession completed - "
+                f"Tokens: {input_tokens} in, {output_tokens} out, "
                 f"Tools called: {metrics.get('tools_used', 0)}, "
                 f"Duration: {duration:.1f}s"
             )
@@ -279,8 +291,8 @@ class TelemetryHooks:
 
         # Clear context
         current_session_span.set(None)
-        session_metrics.set({})
-        current_tool_spans.set({})
+        session_metrics.set(None)
+        current_tool_spans.set(None)
 
         # Reset state
         self.messages = []

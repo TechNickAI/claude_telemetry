@@ -1,19 +1,9 @@
-# Core dependencies
 claude-agent-sdk
-opentelemetry-api
-opentelemetry-sdk
-opentelemetry-exporter-otlp
-
-# Optional but recommended
 logfire
-
-# CLI dependencies
-typer
-rich
-prompt-toolkit
-
-# Config validation
+opentelemetry-api
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-sdk
 pydantic
-
-# Environment management
 python-dotenv
+rich
+typer

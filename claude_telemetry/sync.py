@@ -1,18 +1,19 @@
 """Synchronous wrappers for async functions."""
 
 import asyncio
-from typing import List, Optional
 
 from opentelemetry.sdk.trace import TracerProvider
+
+from claude_telemetry.runner import run_agent_interactive, run_agent_with_telemetry
 
 
 def run_agent_with_telemetry_sync(
     prompt: str,
-    system_prompt: Optional[str] = None,
+    system_prompt: str | None = None,
     model: str = "claude-3-5-sonnet-20241022",
-    allowed_tools: Optional[List[str]] = None,
+    allowed_tools: list[str] | None = None,
     use_mcp: bool = True,
-    tracer_provider: Optional[TracerProvider] = None,
+    tracer_provider: TracerProvider | None = None,
 ) -> None:
     """
     Synchronous wrapper for run_agent_with_telemetry.
@@ -34,12 +35,9 @@ def run_agent_with_telemetry_sync(
     Example:
         >>> from claude_telemetry import run_agent_with_telemetry_sync
         >>> run_agent_with_telemetry_sync(
-        ...     "Analyze my Python files",
-        ...     allowed_tools=["Read", "Glob"]
+        ...     "Analyze my Python files", allowed_tools=["Read", "Glob"]
         ... )
     """
-    from claude_telemetry.runner import run_agent_with_telemetry
-
     # Use asyncio.run() for Python 3.10+
     asyncio.run(
         run_agent_with_telemetry(
@@ -54,11 +52,11 @@ def run_agent_with_telemetry_sync(
 
 
 def run_agent_interactive_sync(
-    system_prompt: Optional[str] = None,
+    system_prompt: str | None = None,
     model: str = "claude-3-5-sonnet-20241022",
-    allowed_tools: Optional[List[str]] = None,
+    allowed_tools: list[str] | None = None,
     use_mcp: bool = True,
-    tracer_provider: Optional[TracerProvider] = None,
+    tracer_provider: TracerProvider | None = None,
 ) -> None:
     """
     Synchronous wrapper for interactive mode.
@@ -75,11 +73,8 @@ def run_agent_interactive_sync(
 
     Example:
         >>> from claude_telemetry import run_agent_interactive_sync
-        >>> run_agent_interactive_sync(
-        ...     allowed_tools=["Read", "Write", "Bash"]
-        ... )
+        >>> run_agent_interactive_sync(allowed_tools=["Read", "Write", "Bash"])
     """
-    from claude_telemetry.runner import run_agent_interactive
 
     asyncio.run(
         run_agent_interactive(

@@ -21,7 +21,7 @@ def configure_logfire(service_name: str = "claude-agents") -> TracerProvider:
         Configured TracerProvider with Logfire enhancements
     """
     try:
-        import logfire
+        import logfire  # noqa: PLC0415
 
         # Configure Logfire with service name
         logfire.configure(
@@ -40,11 +40,11 @@ def configure_logfire(service_name: str = "claude-agents") -> TracerProvider:
         )
         logger.info(f"Logfire project URL: https://logfire.pydantic.dev/{project_name}")
 
-        return provider
-
-    except Exception as e:
-        logger.error(f"Failed to configure Logfire: {e}")
+    except Exception:
+        logger.exception("Failed to configure Logfire")
         raise
+    else:
+        return provider
 
 
 def format_for_logfire_llm(

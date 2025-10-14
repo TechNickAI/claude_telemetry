@@ -1,10 +1,12 @@
 """Main agent runner with telemetry hooks."""
 
 import logging
-from typing import List, Optional
 
 from claude_agent_sdk import ClaudeAgent, ClaudeAgentOptions, HookMatcher
 from opentelemetry.sdk.trace import TracerProvider
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
 
 from claude_telemetry.hooks import TelemetryHooks
 from claude_telemetry.mcp import load_mcp_config
@@ -15,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 async def run_agent_with_telemetry(
     prompt: str,
-    system_prompt: Optional[str] = None,
+    system_prompt: str | None = None,
     model: str = "claude-3-5-sonnet-20241022",
-    allowed_tools: Optional[List[str]] = None,
+    allowed_tools: list[str] | None = None,
     use_mcp: bool = True,
-    tracer_provider: Optional[TracerProvider] = None,
+    tracer_provider: TracerProvider | None = None,
 ) -> None:
     """
     Run a Claude agent with OpenTelemetry instrumentation.
@@ -38,7 +40,7 @@ async def run_agent_with_telemetry(
         None - prints Claude's responses and sends telemetry
     """
     # Configure telemetry
-    provider = configure_telemetry(tracer_provider)
+    configure_telemetry(tracer_provider)
 
     # Initialize hooks
     hooks = TelemetryHooks()
@@ -101,11 +103,11 @@ async def run_agent_with_telemetry(
 
 
 async def run_agent_interactive(
-    system_prompt: Optional[str] = None,
+    system_prompt: str | None = None,
     model: str = "claude-3-5-sonnet-20241022",
-    allowed_tools: Optional[List[str]] = None,
+    allowed_tools: list[str] | None = None,
     use_mcp: bool = True,
-    tracer_provider: Optional[TracerProvider] = None,
+    tracer_provider: TracerProvider | None = None,
 ) -> None:
     """
     Run Claude agent in interactive mode.
@@ -122,16 +124,10 @@ async def run_agent_interactive(
     Returns:
         None - runs interactive session
     """
-    from prompt_toolkit import prompt
-    from prompt_toolkit.history import FileHistory
-    from rich.console import Console
-    from rich.markdown import Markdown
-    from rich.panel import Panel
-
     console = Console()
 
     # Configure telemetry once for the session
-    provider = configure_telemetry(tracer_provider)
+    configure_telemetry(tracer_provider)
 
     # Load MCP configuration if requested
     mcp_config = None
@@ -150,16 +146,17 @@ async def run_agent_interactive(
     agent = ClaudeAgent(options=options)
 
     # Welcome message
-    console.print(Panel.fit(
-        "[bold green]Claude Telemetry Interactive Mode[/bold green]\n"
-        f"Model: {model}\n"
-        f"Tools: {', '.join(allowed_tools) if allowed_tools else 'None'}\n"
-        "Type 'exit' or Ctrl+D to quit",
-        title="🤖 Welcome",
-    ))
+    console.print(
+        Panel.fit(
+            "[bold green]Claude Telemetry Interactive Mode[/bold green]\n"
+            f"Model: {model}\n"
+            f"Tools: {', '.join(allowed_tools) if allowed_tools else 'None'}\n"
+            "Type 'exit' or Ctrl+D to quit",
+            title="🤖 Welcome",
+        )
+    )
 
     # Interactive loop
-    history = FileHistory(".claudia_history")
     session_metrics = {
         "total_input_tokens": 0,
         "total_output_tokens": 0,
@@ -170,12 +167,8 @@ async def run_agent_interactive(
     try:
         while True:
             try:
-                # Get user input with history
-                user_input = prompt(
-                    "\n> ",
-                    history=history,
-                    multiline=False,
-                )
+                # Get user input
+                user_input = input("\n> ")
 
                 if user_input.lower() in ["exit", "quit", "bye"]:
                     break
@@ -210,11 +203,13 @@ async def run_agent_interactive(
 
                     # Display response with formatting
                     if response:
-                        console.print(Panel(
-                            Markdown(response),
-                            title="Claude",
-                            border_style="cyan",
-                        ))
+                        console.print(
+                            Panel(
+                                Markdown(response),
+                                title="Claude",
+                                border_style="cyan",
+                            )
+                        )
 
                     # Update session metrics
                     session_metrics["prompts_count"] += 1
@@ -232,11 +227,14 @@ async def run_agent_interactive(
     finally:
         # Show session summary
         console.print("\n" + "=" * 50)
-        console.print(Panel.fit(
-            f"[bold]Session Summary[/bold]\n"
-            f"Prompts: {session_metrics['prompts_count']}\n"
-            f"Total tokens: {session_metrics['total_input_tokens'] + session_metrics['total_output_tokens']}",
-            title="📊 Metrics",
-            border_style="green",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold]Session Summary[/bold]\n"
+                f"Prompts: {session_metrics['prompts_count']}\n"
+                f"Total tokens: "
+                f"{session_metrics['total_input_tokens'] + session_metrics['total_output_tokens']}",  # noqa: E501
+                title="📊 Metrics",
+                border_style="green",
+            )
+        )
         console.print("\nGoodbye! 👋")

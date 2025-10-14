@@ -46,8 +46,7 @@ def configure_telemetry(
     # Check for Logfire configuration
     if os.getenv("LOGFIRE_TOKEN"):
         try:
-            import logfire
-            from claude_telemetry.logfire_adapter import configure_logfire
+            from claude_telemetry.logfire_adapter import configure_logfire  # noqa: PLC0415
 
             logger.info("Configuring Logfire telemetry")
             return configure_logfire(service_name)
