@@ -2,7 +2,9 @@
 
 OpenTelemetry instrumentation for Claude agents.
 
-Captures every prompt, tool call, token count, and cost as structured OTEL spans. Send traces to any observability backend: Logfire, Datadog, Honeycomb, Grafana, or your own collector.
+Captures every prompt, tool call, token count, and cost as structured OTEL spans. Send
+traces to any observability backend: Logfire, Datadog, Honeycomb, Grafana, or your own
+collector.
 
 ## Installation
 
@@ -24,7 +26,8 @@ await run_agent_with_telemetry(
 )
 ```
 
-Set `LOGFIRE_TOKEN` as an environment variable. The package auto-configures Logfire with proper LLM span formatting.
+Set `LOGFIRE_TOKEN` as an environment variable. The package auto-configures Logfire with
+proper LLM span formatting.
 
 **With any OTEL backend:**
 
@@ -60,13 +63,15 @@ await run_agent_with_telemetry(
 claudia "Analyze my recent emails"
 ```
 
-The CLI uses Logfire by default. Configure other backends via OTEL environment variables.
+The CLI uses Logfire by default. Configure other backends via OTEL environment
+variables.
 
 ## What Gets Captured
 
 Every agent execution creates one parent span containing:
 
 **Span attributes:**
+
 - `prompt` - The task given to Claude
 - `model` - Claude model used
 - `input_tokens` - Tokens sent to Claude
@@ -77,12 +82,14 @@ Every agent execution creates one parent span containing:
 - `turns` - Conversation rounds
 
 **Child spans for each tool:**
+
 - Tool name
 - Tool inputs (as attributes)
 - Tool outputs (as attributes)
 - Execution time
 
 **Events within spans:**
+
 - User prompt submitted
 - Tool calling started
 - Tool completed
@@ -107,16 +114,19 @@ claude.agent.run (parent span)
 When using Logfire, the package enables LLM-specific UI features:
 
 **LLM span tagging:**
+
 - Spans tagged with `LLM` show in Logfire's LLM UI
 - Request/response formatted for token visualization
 - Tool calls displayed as structured data
 
 **Enhanced formatting:**
+
 - Emoji indicators (🤖 for agents, 🔧 for tools, ✅ for completion)
 - Proper nesting in console output
 - Readable span titles (task description, not "Message with model X")
 
-This happens automatically when `LOGFIRE_TOKEN` is set. With other backends, you get standard OTEL spans.
+This happens automatically when `LOGFIRE_TOKEN` is set. With other backends, you get
+standard OTEL spans.
 
 ## Configuration
 
@@ -127,6 +137,7 @@ export LOGFIRE_TOKEN="your_token_here"
 ```
 
 The package detects the token and configures:
+
 - EU region endpoint (or US via `LOGFIRE_BASE_URL`)
 - LLM span formatting
 - Proper attribute structure for Logfire's UI
@@ -165,7 +176,8 @@ Place `.mcp.json` in your project root:
 }
 ```
 
-Both HTTP and stdio MCP servers are supported. The package converts your config to SDK format automatically.
+Both HTTP and stdio MCP servers are supported. The package converts your config to SDK
+format automatically.
 
 ## API
 
@@ -181,15 +193,19 @@ async def run_agent_with_telemetry(
 ```
 
 **Parameters:**
+
 - `prompt` - Task for Claude
 - `system_prompt` - System instructions
 - `model` - Claude model (default: claude-3-5-sonnet-20241022)
 - `allowed_tools` - SDK tool names (e.g., `["Read", "Write", "Bash"]`)
 - `use_mcp` - Load MCP servers from `.mcp.json` (default: True)
-- `tracer_provider` - Custom OTEL tracer provider (optional, auto-detected if not provided)
+- `tracer_provider` - Custom OTEL tracer provider (optional, auto-detected if not
+  provided)
 
 **Returns:**
-- Nothing directly. Prints Claude's responses to console and sends all telemetry via OTEL.
+
+- Nothing directly. Prints Claude's responses to console and sends all telemetry via
+  OTEL.
 
 **Example:**
 
@@ -213,18 +229,21 @@ asyncio.run(main())
 The package uses Claude SDK's hook system to capture execution:
 
 **Hooks registered:**
+
 - `UserPromptSubmit` - Opens parent span, logs prompt
 - `PreToolUse` - Opens child span for tool, captures input
 - `PostToolUse` - Captures output, closes tool span
 - Session completion - Adds final metrics, closes parent span
 
 **OTEL export:**
+
 - Spans sent via configured OTEL exporter
 - Attributes follow semantic conventions where applicable
 - Events add context without creating spans
 - Works with any OTEL-compatible backend
 
 **Logfire detection:**
+
 - Checks for `LOGFIRE_TOKEN` environment variable
 - If present, uses Logfire's Python SDK for auto-config
 - Adds LLM-specific formatting and tags
@@ -235,6 +254,7 @@ The package uses Claude SDK's hook system to capture execution:
 ### Why OpenTelemetry?
 
 OpenTelemetry is the industry standard for observability. Using it means:
+
 - Works with any observability backend
 - Doesn't lock users into specific vendors
 - Integrates with existing infrastructure
@@ -242,7 +262,9 @@ OpenTelemetry is the industry standard for observability. Using it means:
 
 ### Why Special-Case Logfire?
 
-Logfire has LLM-specific UI features that require specific span formatting. When Logfire is detected, the package:
+Logfire has LLM-specific UI features that require specific span formatting. When Logfire
+is detected, the package:
+
 - Tags spans for LLM UI
 - Formats request/response for token visualization
 - Uses Logfire's SDK for optimal integration
@@ -252,6 +274,7 @@ This is additive - standard OTEL still works, Logfire just gets enhanced feature
 ### Why Hooks Instead of Wrappers?
 
 The Claude SDK provides hooks specifically for observability. Using them:
+
 - Captures all events without modifying SDK code
 - Works across SDK updates
 - Clean separation of concerns
@@ -260,6 +283,7 @@ The Claude SDK provides hooks specifically for observability. Using them:
 ## Supported Backends
 
 **Tested and working:**
+
 - Logfire (enhanced LLM features)
 - Honeycomb
 - Datadog
@@ -267,6 +291,7 @@ The Claude SDK provides hooks specifically for observability. Using them:
 - Self-hosted OTEL collector
 
 **Should work (standard OTEL):**
+
 - New Relic
 - Elastic APM
 - AWS X-Ray
@@ -423,19 +448,23 @@ options = ClaudeAgentOptions(
 
 **No traces appearing:**
 
-Check your OTEL configuration. Verify the endpoint and credentials. Test with a simple OTEL example first to confirm backend connectivity.
+Check your OTEL configuration. Verify the endpoint and credentials. Test with a simple
+OTEL example first to confirm backend connectivity.
 
 **Logfire LLM UI not showing:**
 
-Ensure `LOGFIRE_TOKEN` is set. The package must detect it to enable LLM formatting. Check console for "Logfire project URL" to confirm connection.
+Ensure `LOGFIRE_TOKEN` is set. The package must detect it to enable LLM formatting.
+Check console for "Logfire project URL" to confirm connection.
 
 **MCP servers not loading:**
 
-Validate `.mcp.json` syntax. Ensure `transport` field is present for HTTP servers. Check MCP server health: `claude mcp list`
+Validate `.mcp.json` syntax. Ensure `transport` field is present for HTTP servers. Check
+MCP server health: `claude mcp list`
 
 **Tool calls missing from traces:**
 
-Verify tools are enabled via `allowed_tools` or `use_mcp=True`. Check console output to confirm tools are being called.
+Verify tools are enabled via `allowed_tools` or `use_mcp=True`. Check console output to
+confirm tools are being called.
 
 ## License
 
@@ -445,7 +474,6 @@ MIT License
 
 Built for the 100x community.
 
-Package name: `claude-telemetry`  
-CLI name: `claudia`
+Package name: `claude-telemetry` CLI name: `claudia`
 
 Based on OpenTelemetry standards. Enhanced Logfire integration when available.
