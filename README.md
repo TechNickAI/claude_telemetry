@@ -1,5 +1,9 @@
 # claude-telemetry
 
+[![CI](https://github.com/TechNickAI/claude-telemetry/actions/workflows/ci.yml/badge.svg)](https://github.com/TechNickAI/claude-telemetry/actions/workflows/ci.yml)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+
 OpenTelemetry instrumentation for Claude agents.
 
 Captures every prompt, tool call, token count, and cost as structured OTEL spans. Send
