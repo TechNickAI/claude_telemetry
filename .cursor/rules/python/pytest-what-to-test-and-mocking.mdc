@@ -1,0 +1,135 @@
+---
+description: When writing tests
+alwaysApply: false
+---
+
+# Pytest: What to Test and Mocking
+
+## Core Requirements
+
+We mock external API calls (mark live tests with `@pytest.mark.flaky()`). We reuse
+fixtures from conftest.py. We always use pytest as testing framework - never import
+unittest. We use pytest-mock (mocker fixture) and monkeypatch for mocking, not
+unittest.mock.
+
+## What to Test
+
+Test your business logic, not the libraries you depend on.
+
+### Test Your Business Logic
+
+```python
+def test_calculates_discount_correctly():
+    """Test our custom discount calculation"""
+    order = Order(subtotal=Decimal("100.00"))
+    discount = calculate_discount(order, coupon_code="SAVE20")
+    assert discount == Decimal("20.00")
+
+def test_handles_invalid_coupon_gracefully():
+    """Test our error handling for invalid coupons"""
+    order = Order(subtotal=Decimal("100.00"))
+    discount = calculate_discount(order, coupon_code="INVALID")
+    assert discount == Decimal("0.00")
+
+def test_order_state_transitions():
+    """Test our state machine logic"""
+    order = Order(status="pending")
+    order.mark_paid()
+    assert order.status == "paid"
+    assert order.paid_at is not None
+```
+
+### Test Integration Points
+
+```python
+def test_sends_correct_parameters_to_stripe(mocker):
+    """Test how we call Stripe API"""
+    mock_stripe = mocker.patch("stripe.Charge.create")
+    process_payment(order_id="123", amount=Decimal("50.00"))
+    mock_stripe.assert_called_once_with(
+        amount=5000,  # cents
+        currency="usd",
+        source="tok_visa"
+    )
+
+def test_processes_stripe_response_correctly():
+    """Test how we transform Stripe data"""
+    stripe_response = {"id": "ch_123", "status": "succeeded"}
+    payment = Payment.from_stripe_response(stripe_response)
+    assert payment.external_id == "ch_123"
+    assert payment.status == "completed"
+```
+
+### Skip Library Testing
+
+We don't test that Pydantic validates, Django filters work, or httpx makes requests.
+These libraries test themselves. We focus on our logic that uses these tools.
+
+### Decision Framework
+
+Test when: we wrote the logic, it could break if we change our code, or we're testing
+how we use a library.
+
+Skip when: a library is doing what it's designed to do, or it would only break if the
+library has a bug.
+
+## When to Mock vs When to Fix
+
+Mocking should isolate our code from external dependencies, not hide internal problems.
+
+### Mock External Dependencies
+
+```python
+def test_fetches_exchange_rates(mocker):
+    """Mock external API calls"""
+    mock_response = {"USD": 1.0, "EUR": 0.85}
+    mocker.patch("requests.get", return_value=mock_response)
+    rates = fetch_exchange_rates()
+    assert rates["EUR"] == 0.85
+
+def test_checks_expiry_correctly(mocker):
+    """Mock time-dependent operations"""
+    fixed_time = datetime(2024, 1, 1, 12, 0, 0)
+    mocker.patch("django.utils.timezone.now", return_value=fixed_time)
+    order = Order(expires_at=datetime(2024, 1, 1, 13, 0, 0))
+    assert not order.is_expired()
+
+def test_generates_unique_codes(mocker):
+    """Mock non-deterministic operations"""
+    mocker.patch("secrets.token_hex", return_value="abc123")
+    code = generate_order_code()
+    assert code == "ORDER-abc123"
+```
+
+### Don't Mock Internal Logic
+
+If you're mocking your own code, the internal code should work. If a test is failing
+because of your internal logic, fix the logic or test data rather than mocking it away.
+
+### Good Reasons to Mock
+
+- External API calls (Stripe, AWS, third-party services)
+- Time operations (timezone.now, datetime.now)
+- Random/non-deterministic operations (uuid, secrets)
+- File system or network operations
+- Expensive database queries in unit tests
+
+### When a Test Fails
+
+1. External dependency issue? Mock it
+2. Invalid test data? Fix the test data
+3. Missing fixture? Create proper fixtures
+4. Validation error? Fix validation or use valid data
+5. Configuration issue? Fix configuration
+
+We don't mock away errors. We understand the root cause and fix it.
+
+## Philosophy
+
+When a test fails, we think first: is this a test problem or a code problem? We never
+"fix" a broken test by mocking away the error. We're thoughtful about mocking - is this
+the best solution or a hack?
+
+We don't test for exact text - we keep tests resilient. We focus on our business logic -
+test what we wrote, not what libraries do. Quality over quantity - 10 focused tests beat
+100 tests that test everything.

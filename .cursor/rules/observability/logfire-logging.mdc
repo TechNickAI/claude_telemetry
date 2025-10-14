@@ -1,0 +1,92 @@
+---
+description: When using Logfire for logging and observability
+alwaysApply: false
+---
+
+# Logfire Logging
+
+## Core Pattern
+
+```python
+from helpers.observability import logfire
+
+# Basic logging
+logfire.info("Operation completed",
+             operation="data_processing",
+             item_count=123)
+
+# Spans for duration tracking
+with logfire.span("Processing batch", batch_id=batch.id):
+    result = process_batch(batch)
+    logfire.info("Batch complete", items_processed=result.count)
+```
+
+## When to Use Spans
+
+We use spans for operations that have duration to track, nested sub-operations, or need
+grouped logs for easier debugging.
+
+## Span Naming
+
+Create specific, human-readable span names:
+
+```python
+with logfire.span(
+    f"Processing {strategy_name} for {item.name}",
+    item_id=item.id,
+    strategy_name=strategy_name,
+    operation="strategy_processing"
+):
+    execute_strategy()
+
+with logfire.span(
+    f"Syncing orders for {customer.email}",
+    customer_id=customer.id,
+    order_count=len(orders),
+    operation="order_sync"
+):
+    sync_all_orders(orders)
+
+with logfire.span(
+    f"Generating report for {date.isoformat()}",
+    report_type="daily_sales",
+    date=date.isoformat()
+):
+    generate_daily_report(date)
+```
+
+Span names should immediately tell you what's happening. Include key identifiers to make
+debugging easier.
+
+## Logging Levels
+
+- `logfire.info()` - Normal operations, important events
+- `logfire.error()` - Serious problems
+- `logfire.warning()` - Concerning but recoverable
+- `logfire.debug()` - Detailed info for development
+
+## Context Attributes
+
+Include searchable, meaningful attributes:
+
+```python
+logfire.info(
+    "Order processed successfully",
+    order_id=order.id,
+    customer_id=customer.id,
+    total_amount=float(order.total),
+    operation="order_processing"
+)
+```
+
+## What NOT to Log
+
+We skip sensitive data (API keys, passwords), high-frequency noise (every loop
+iteration), obvious operations ("Starting function"), and debugging artifacts (use debug
+level for raw responses).
+
+## Best Practices
+
+We make the first line immediately useful, include specific values (not just
+"processing"), use consistent attribute naming (snake_case), convert Decimals to floats,
+and stay thoughtful about volume.

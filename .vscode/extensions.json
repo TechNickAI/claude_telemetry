@@ -1,0 +1,17 @@
+{
+  "recommendations": [
+    // Python
+    "charliermarsh.ruff",
+
+    // JavaScript/TypeScript
+    "esbenp.prettier-vscode",
+
+    // Shell/Docker
+    "foxundermoon.shell-format",
+
+    // Utilities
+    "streetsidesoftware.code-spell-checker",
+    "github.vscode-github-actions",
+    "johnpapa.vscode-peacock"
+  ]
+}
