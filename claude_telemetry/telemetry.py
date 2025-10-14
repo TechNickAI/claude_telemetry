@@ -1,0 +1,147 @@
+"""OpenTelemetry configuration and setup for Claude agents."""
+
+import asyncio
+import logging
+import os
+
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+
+logger = logging.getLogger(__name__)
+
+
+def configure_telemetry(
+    tracer_provider: TracerProvider | None = None,
+    service_name: str = "claude-agents",
+) -> TracerProvider:
+    """
+    Configure OpenTelemetry for Claude agent tracing.
+
+    Priority order:
+    1. Provided tracer_provider
+    2. Logfire (if LOGFIRE_TOKEN is set)
+    3. OTEL environment variables
+    4. No-op tracer (telemetry disabled)
+
+    Args:
+        tracer_provider: Optional custom tracer provider
+        service_name: Service name for traces
+
+    Returns:
+        Configured TracerProvider
+    """
+    # Use provided tracer if given
+    if tracer_provider:
+        trace.set_tracer_provider(tracer_provider)
+        return tracer_provider
+
+    # Check if already configured
+    existing = trace.get_tracer_provider()
+    if existing and not isinstance(existing, trace.NoOpTracerProvider):
+        return existing
+
+    # Check for Logfire configuration
+    if os.getenv("LOGFIRE_TOKEN"):
+        try:
+            import logfire
+            from claude_telemetry.logfire_adapter import configure_logfire
+
+            logger.info("Configuring Logfire telemetry")
+            return configure_logfire(service_name)
+        except ImportError:
+            logger.warning("LOGFIRE_TOKEN set but logfire not installed")
+        except Exception as e:
+            logger.warning(f"Failed to configure Logfire: {e}")
+
+    # Check for OTEL configuration
+    otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if otel_endpoint:
+        try:
+            logger.info(f"Configuring OTEL with endpoint: {otel_endpoint}")
+            return _configure_otel(otel_endpoint, service_name)
+        except Exception as e:
+            logger.warning(f"Failed to configure OTEL: {e}")
+
+    # No configuration found - use console exporter for debugging
+    if os.getenv("CLAUDE_TELEMETRY_DEBUG"):
+        logger.info("Using console exporter for debugging")
+        return _configure_console_exporter(service_name)
+
+    # Return no-op tracer
+    logger.debug("No telemetry backend configured - using no-op tracer")
+    return trace.get_tracer_provider()
+
+
+def _configure_otel(endpoint: str, service_name: str) -> TracerProvider:
+    """Configure standard OTEL exporter."""
+    resource = Resource.create({"service.name": service_name})
+
+    # Parse headers from environment
+    headers = {}
+    headers_env = os.getenv("OTEL_EXPORTER_OTLP_HEADERS", "")
+    if headers_env:
+        for header in headers_env.split(","):
+            if "=" in header:
+                key, value = header.split("=", 1)
+                headers[key.strip()] = value.strip()
+
+    # Create OTLP exporter
+    exporter = OTLPSpanExporter(
+        endpoint=endpoint
+        if endpoint.endswith("/v1/traces")
+        else f"{endpoint}/v1/traces",
+        headers=headers,
+    )
+
+    # Create and configure tracer provider
+    provider = TracerProvider(resource=resource)
+    processor = BatchSpanProcessor(exporter)
+    provider.add_span_processor(processor)
+
+    # Set as global tracer
+    trace.set_tracer_provider(provider)
+
+    return provider
+
+
+def _configure_console_exporter(service_name: str) -> TracerProvider:
+    """Configure console exporter for debugging."""
+    resource = Resource.create({"service.name": service_name})
+
+    provider = TracerProvider(resource=resource)
+    processor = BatchSpanProcessor(ConsoleSpanExporter())
+    provider.add_span_processor(processor)
+
+    trace.set_tracer_provider(provider)
+
+    return provider
+
+
+def safe_span_operation(operation):
+    """
+    Decorator to safely execute telemetry operations without blocking.
+
+    Telemetry failures should NEVER block agent execution.
+    """
+
+    def wrapper(*args, **kwargs):
+        try:
+            return operation(*args, **kwargs)
+        except Exception as e:
+            logger.warning(f"Telemetry operation failed (ignored): {e}")
+            return None
+
+    async def async_wrapper(*args, **kwargs):
+        try:
+            return await operation(*args, **kwargs)
+        except Exception as e:
+            logger.warning(f"Telemetry operation failed (ignored): {e}")
+            return None
+
+    # Return appropriate wrapper based on function type
+    if asyncio.iscoroutinefunction(operation):
+        return async_wrapper
+    return wrapper
