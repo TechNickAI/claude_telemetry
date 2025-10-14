@@ -21,6 +21,9 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 
+[project.scripts]
+claudia = "claude_telemetry.cli:app"
+
 [project.urls]
 Homepage = "https://github.com/TechNickAI/claude_telemetry"
 Repository = "https://github.com/TechNickAI/claude_telemetry"
