@@ -1,0 +1,92 @@
+"""Synchronous wrappers for async functions."""
+
+import asyncio
+from typing import List, Optional
+
+from opentelemetry.sdk.trace import TracerProvider
+
+
+def run_agent_with_telemetry_sync(
+    prompt: str,
+    system_prompt: Optional[str] = None,
+    model: str = "claude-3-5-sonnet-20241022",
+    allowed_tools: Optional[List[str]] = None,
+    use_mcp: bool = True,
+    tracer_provider: Optional[TracerProvider] = None,
+) -> None:
+    """
+    Synchronous wrapper for run_agent_with_telemetry.
+
+    This is a convenience function for users who prefer sync APIs.
+    It uses asyncio.run() internally to execute the async version.
+
+    Args:
+        prompt: Task for Claude to perform
+        system_prompt: System instructions for Claude
+        model: Claude model to use
+        allowed_tools: List of SDK tool names to allow
+        use_mcp: Whether to load MCP servers from .mcp.json
+        tracer_provider: Optional custom tracer provider
+
+    Returns:
+        None - prints Claude's responses and sends telemetry
+
+    Example:
+        >>> from claude_telemetry import run_agent_with_telemetry_sync
+        >>> run_agent_with_telemetry_sync(
+        ...     "Analyze my Python files",
+        ...     allowed_tools=["Read", "Glob"]
+        ... )
+    """
+    from claude_telemetry.runner import run_agent_with_telemetry
+
+    # Use asyncio.run() for Python 3.10+
+    asyncio.run(
+        run_agent_with_telemetry(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            model=model,
+            allowed_tools=allowed_tools,
+            use_mcp=use_mcp,
+            tracer_provider=tracer_provider,
+        )
+    )
+
+
+def run_agent_interactive_sync(
+    system_prompt: Optional[str] = None,
+    model: str = "claude-3-5-sonnet-20241022",
+    allowed_tools: Optional[List[str]] = None,
+    use_mcp: bool = True,
+    tracer_provider: Optional[TracerProvider] = None,
+) -> None:
+    """
+    Synchronous wrapper for interactive mode.
+
+    Args:
+        system_prompt: System instructions for Claude
+        model: Claude model to use
+        allowed_tools: List of SDK tool names to allow
+        use_mcp: Whether to load MCP servers from .mcp.json
+        tracer_provider: Optional custom tracer provider
+
+    Returns:
+        None - runs interactive session
+
+    Example:
+        >>> from claude_telemetry import run_agent_interactive_sync
+        >>> run_agent_interactive_sync(
+        ...     allowed_tools=["Read", "Write", "Bash"]
+        ... )
+    """
+    from claude_telemetry.runner import run_agent_interactive
+
+    asyncio.run(
+        run_agent_interactive(
+            system_prompt=system_prompt,
+            model=model,
+            allowed_tools=allowed_tools,
+            use_mcp=use_mcp,
+            tracer_provider=tracer_provider,
+        )
+    )
