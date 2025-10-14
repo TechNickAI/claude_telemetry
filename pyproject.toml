@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "setuptools-scm>=8.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "claude-telemetry"
+name = "claude_telemetry"
 dynamic = ["version"]
 description = "OpenTelemetry instrumentation for Claude agents"
 authors = [{ name = "Nick Garvey", email = "nick@technick.ai" }]
@@ -22,9 +22,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/TechNickAI/claude-telemetry"
-Repository = "https://github.com/TechNickAI/claude-telemetry"
-Issues = "https://github.com/TechNickAI/claude-telemetry/issues"
+Homepage = "https://github.com/TechNickAI/claude_telemetry"
+Repository = "https://github.com/TechNickAI/claude_telemetry"
+Issues = "https://github.com/TechNickAI/claude_telemetry/issues"
 
 [tool.setuptools_scm]
 # Version will be derived from git tags

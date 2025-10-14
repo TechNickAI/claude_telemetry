@@ -1,4 +1,4 @@
-"""Tests for claude-telemetry instrumentation."""
+"""Tests for claude_telemetry instrumentation."""
 
 
 def test_placeholder():

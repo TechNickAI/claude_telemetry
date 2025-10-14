@@ -2,7 +2,7 @@
 
 from importlib.metadata import version
 
-__version__ = version("claude-telemetry")
+__version__ = version("claude_telemetry")
 
 # Main exports will go here once implemented
 # from .runner import run_agent_with_telemetry

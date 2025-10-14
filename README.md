@@ -1,6 +1,6 @@
-# claude-telemetry
+# claude_telemetry
 
-[![CI](https://github.com/TechNickAI/claude-telemetry/actions/workflows/ci.yml/badge.svg)](https://github.com/TechNickAI/claude-telemetry/actions/workflows/ci.yml)
+[![CI](https://github.com/TechNickAI/claude_telemetry/actions/workflows/ci.yml/badge.svg)](https://github.com/TechNickAI/claude_telemetry/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
@@ -13,7 +13,7 @@ collector.
 ## Installation
 
 ```bash
-pip install git+https://github.com/TechNickAI/claude-telemetry.git
+pip install git+https://github.com/TechNickAI/claude_telemetry.git
 ```
 
 ## Usage
@@ -330,8 +330,8 @@ Session completed - Tokens: 145 in, 423 out, Tools called: 2
 ## Development
 
 ```bash
-git clone https://github.com/TechNickAI/claude-telemetry.git
-cd claude-telemetry
+git clone https://github.com/TechNickAI/claude_telemetry.git
+cd claude_telemetry
 pip install -e ".[dev]"
 
 # Run tests
@@ -350,7 +350,7 @@ python examples/otel_example.py
 ## Project Structure
 
 ```
-claude-telemetry/
+claude_telemetry/
   claude_telemetry/
     __init__.py           # Package exports
     runner.py             # Main agent runner with hooks
@@ -478,6 +478,6 @@ MIT License
 
 Built for the 100x community.
 
-Package name: `claude-telemetry` CLI name: `claudia`
+Package name: `claude_telemetry` CLI name: `claudia`
 
 Based on OpenTelemetry standards. Enhanced Logfire integration when available.
