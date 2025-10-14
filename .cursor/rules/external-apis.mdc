@@ -1,0 +1,58 @@
+---
+description: When calling external APIs
+alwaysApply: false
+---
+
+# External API Client Guidelines
+
+These guidelines ensure consistent, reliable, and maintainable API clients.
+
+## Core Principles
+
+- We return None on API errors (don't raise exceptions)
+- We use type hints consistently
+- We document methods with helpful docstrings (skip redundant Args/Returns)
+- We use appropriate logging levels
+- We let exceptions bubble up unless we're truly handling them
+
+## Method Pattern
+
+```python
+def get_something(self, param: str) -> dict | None:
+    """Fetch something from the API.
+
+    Returns None if the API returns no data or encounters an error.
+    """
+    logger.info(f"Fetching something for {param}")
+
+    response = self.request("/endpoint", params={"key": param})
+    if not response:
+        logger.warning(f"No data returned for {param}")
+        return None
+
+    return response["data"]
+```
+
+## Error Handling
+
+We let the base HTTP client handle HTTP/network errors. We only use try/except for
+specific scenarios with actual handling. We validate response structure before access.
+
+## Validation Pattern
+
+```python
+response = self.request("/endpoint", params={"key": value})
+if not response or "data" not in response:
+    logger.warning(f"No data returned for {value}")
+    return None
+```
+
+## Response Processing
+
+We validate response structure before access, convert to standard types (Decimal for
+financial data), clean and normalize data, and return None for errors (not empty dicts).
+
+## Testing
+
+We mock all external calls in unit tests, use @pytest.mark.flaky for live API tests, and
+test both success and error cases.

@@ -1,0 +1,149 @@
+---
+description: when writing python code or running python commands
+alwaysApply: false
+---
+
+# Python Guidelines
+
+## Imports - NON-NEGOTIABLE
+
+ALL imports go at the top of the file. Every single one. If you're even thinking about
+putting an import inside a function, stop.
+
+Exception: circular import issues (genuinely rare).
+
+Don't abbreviate packages ("pandas" not "pd", "numpy" not "np").
+
+## Modern Python
+
+We use python 3.13+ and follow modern best practices:
+
+- Use `Path` lib for files instead of `open`
+- Use `var!s` instead of `str(var)`
+- Prefer walrus operator (:=) to reduce repetition in code
+- Use modern union syntax `X | Y` instead of `Union[X, Y]`
+- Use underscore separators in large numbers: `Decimal(1_000_000)` not
+  `Decimal("1000000")`
+
+## Attribute and Method Naming
+
+We make everything public by default. We're all consenting adults here.
+
+Only use underscore prefix (`_internal`) when accessing something would genuinely break
+functionality - like thread locks or internal state that must be accessed through
+methods. This is extremely rare.
+
+## Async vs Sync
+
+Default to synchronous code. We use Celery for background jobs with multiple workers, so
+we don't need async to free up CPU. Synchronous code is simpler, easier to debug, and
+easier to maintain.
+
+When given a choice between sync and async, we choose sync.
+
+```python
+def fetch_data(url: str) -> dict:
+    response = requests.get(url)
+    return response.json()
+```
+
+If a library only provides async API, we can wrap it with `asyncio.run()`:
+
+```python
+import asyncio
+
+def sync_wrapper(param: str) -> dict:
+    """Synchronous wrapper for async-only library"""
+    return asyncio.run(async_library_call(param))
+```
+
+Async is appropriate for WebSocket connections, async-only libraries that can't be
+easily wrapped, or specific performance-critical paths where async provides clear,
+measured benefits. Ask for confirmation before introducing async patterns.
+
+## Exception Handling - READ THIS COMPLETELY
+
+DO NOT SWALLOW ERRORS. This is the hill we die on.
+
+Default: let exceptions bubble up. We use Sentry/Honeybadger for centralized error
+tracking, so exceptions that bubble up get caught and reported automatically - we get
+alerted and can fix them. Write functions with NO try/except:
+
+```python
+def process_payment(order_id: str):
+    order = Order.objects.get(id=order_id)
+    result = stripe.charge(order.amount)
+    order.save()
+    return result
+```
+
+See? No try/except. If it fails, it crashes, Sentry/Honeybadger alerts us, and we fix
+the actual problem.
+
+WHY THIS MATTERS: When you catch an exception and just log it, we don't get alerted. The
+error gets buried in logs that nobody reads. Meanwhile, the system continues running in
+a broken state, producing wrong results, corrupting data, or silently failing
+operations. We don't find out until much later when the damage is done.
+
+Broken and visible is WAY better than broken, wrong, and invisible.
+
+### The ONLY times to use try/except
+
+Use try/except ONLY when you have specific alternative behavior:
+
+```python
+# Alternative behavior: create if doesn't exist
+def get_or_create_user(email: str):
+    try:
+        return User.objects.get(email=email)
+    except User.DoesNotExist:
+        return User.objects.create(email=email)
+
+# Loop processing: continue on individual failures
+for order_id in order_ids:
+    try:
+        sync_order(order_id)
+    except SyncError:
+        continue
+
+# Add context before re-raising
+try:
+    result = external_api.call()
+except APIException as e:
+    honeybadger.notify(e, error_class="ExternalAPIError", context={"operation": "payment"})
+    raise
+```
+
+Ask ourselves: "Do we have specific alternative behavior for this error?" If yes, use
+try/except with specific exception type. If no, write the function with no try/except.
+
+If you catch an exception and just log it, or return None, or pass silently - you're
+doing it wrong. That's hiding errors, not handling them. Let it crash so we can fix the
+actual problem.
+
+## Defensive Programming
+
+We avoid hasattr() and getattr(). Trust that attributes and methods exist - just call
+them directly.
+
+We avoid dict.get() with default values for data that should exist. Use bracket access
+`data["key"]` for required fields.
+
+WHY: .get() with defaults silently hides missing data. Missing price becomes 0 (free!),
+missing quantity becomes 0 (invisible positions!), missing fee becomes 0 (wrong
+profit!). The system keeps running with corrupted data and we don't find out until we've
+lost money.
+
+Broken and visible is WAY better than broken and wrong.
+
+Use .get() with defaults only for genuinely optional data: configuration settings,
+optional metadata.
+
+## Financial Data
+
+We use Decimal for financial calculations. Float loses precision with money/prices.
+
+## DRY Principle
+
+We follow DRY (Don't Repeat Yourself). When we see the same logic twice, we extract it
+into a shared method. Future us will thank us!
