@@ -7,12 +7,16 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
 from claude_telemetry.runner import run_agent_interactive, run_agent_with_telemetry
-from claude_telemetry.sync import run_agent_interactive_sync, run_agent_with_telemetry_sync
+from claude_telemetry.sync import (
+    run_agent_interactive_sync,
+    run_agent_with_telemetry_sync,
+)
 
 app = typer.Typer(
     name="claudia",
@@ -21,6 +25,9 @@ app = typer.Typer(
 )
 
 console = Console()
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -32,23 +39,26 @@ logging.basicConfig(
 
 @app.command()
 def main(
-    prompt: Optional[str] = typer.Argument(
+    prompt: str | None = typer.Argument(
         None,
         help="Task for Claude to perform. If not provided, starts interactive mode.",
     ),
     model: str = typer.Option(
         "claude-3-5-sonnet-20241022",
-        "--model", "-m",
+        "--model",
+        "-m",
         help="Claude model to use",
     ),
-    system: Optional[str] = typer.Option(
+    system: str | None = typer.Option(
         None,
-        "--system", "-s",
+        "--system",
+        "-s",
         help="System prompt for Claude",
     ),
-    tools: Optional[List[str]] = typer.Option(
+    tools: list[str] | None = typer.Option(
         None,
-        "--tool", "-t",
+        "--tool",
+        "-t",
         help="SDK tools to allow (can specify multiple times)",
     ),
     no_mcp: bool = typer.Option(
@@ -58,7 +68,8 @@ def main(
     ),
     interactive: bool = typer.Option(
         False,
-        "--interactive", "-i",
+        "--interactive",
+        "-i",
         help="Force interactive mode even with a prompt",
     ),
     debug: bool = typer.Option(
@@ -66,19 +77,19 @@ def main(
         "--debug",
         help="Enable debug output to console",
     ),
-    logfire_token: Optional[str] = typer.Option(
+    logfire_token: str | None = typer.Option(
         None,
         "--logfire-token",
         envvar="LOGFIRE_TOKEN",
         help="Logfire API token (or set LOGFIRE_TOKEN env var)",
     ),
-    otel_endpoint: Optional[str] = typer.Option(
+    otel_endpoint: str | None = typer.Option(
         None,
         "--otel-endpoint",
         envvar="OTEL_EXPORTER_OTLP_ENDPOINT",
         help="OTEL endpoint URL",
     ),
-    otel_headers: Optional[str] = typer.Option(
+    otel_headers: str | None = typer.Option(
         None,
         "--otel-headers",
         envvar="OTEL_EXPORTER_OTLP_HEADERS",
@@ -166,7 +177,7 @@ def main(
             raise typer.Exit(1)
 
 
-def _show_startup_banner(model: str, tools: Optional[List[str]], use_mcp: bool) -> None:
+def _show_startup_banner(model: str, tools: list[str] | None, use_mcp: bool) -> None:
     """Show a fancy startup banner."""
     # Create configuration table
     table = Table(show_header=False, box=None, padding=(0, 1))
@@ -187,12 +198,14 @@ def _show_startup_banner(model: str, tools: Optional[List[str]], use_mcp: bool) 
 
     # Show banner
     console.print()
-    console.print(Panel(
-        "[bold cyan]Claude Telemetry Interactive Mode[/bold cyan]\n\n"
-        "[dim]Type your prompts below. Use 'exit' or Ctrl+D to quit.[/dim]",
-        title="🤖 Claudia",
-        expand=False,
-    ))
+    console.print(
+        Panel(
+            "[bold cyan]Claude Telemetry Interactive Mode[/bold cyan]\n\n"
+            "[dim]Type your prompts below. Use 'exit' or Ctrl+D to quit.[/dim]",
+            title="🤖 Claudia",
+            expand=False,
+        )
+    )
     console.print()
     console.print(table)
     console.print()
@@ -239,16 +252,7 @@ def config() -> None:
     else:
         table.add_row("MCP Config", "Not found", "N/A")
 
-    # Check Claude API key
-    api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
-    if api_key:
-        table.add_row(
-            "Claude API Key",
-            f"{'*' * 8}...{api_key[-4:] if len(api_key) > 4 else '****'}",
-            "Environment",
-        )
-    else:
-        table.add_row("Claude API Key", "[red]Not set[/red]", "N/A")
+    # Note: Claude API key is managed by Claude Code internally
 
     console.print(table)
 
