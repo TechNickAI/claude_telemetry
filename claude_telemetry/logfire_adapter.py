@@ -8,6 +8,9 @@ from opentelemetry.sdk.trace import TracerProvider
 
 from claude_telemetry.helpers.logger import logger
 
+# Global logfire instance - set during configure
+_logfire = None
+
 
 def configure_logfire(service_name: str = "claude-agents") -> TracerProvider:
     """
@@ -19,6 +22,7 @@ def configure_logfire(service_name: str = "claude-agents") -> TracerProvider:
     Returns:
         Configured TracerProvider with Logfire enhancements
     """
+    global _logfire  # noqa: PLW0603
     import os  # noqa: PLC0415
 
     try:
@@ -36,6 +40,9 @@ def configure_logfire(service_name: str = "claude-agents") -> TracerProvider:
             send_to_logfire=True,
         )
 
+        # Store global logfire instance for span creation
+        _logfire = logfire
+
         # Get the configured tracer provider
         provider = trace.get_tracer_provider()
 
@@ -48,6 +55,11 @@ def configure_logfire(service_name: str = "claude-agents") -> TracerProvider:
         raise
     else:
         return provider
+
+
+def get_logfire():
+    """Get the configured logfire instance."""
+    return _logfire
 
 
 def format_for_logfire_llm(

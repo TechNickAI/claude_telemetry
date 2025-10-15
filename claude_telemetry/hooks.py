@@ -11,6 +11,7 @@ from claude_telemetry.helpers.logger import logger
 from claude_telemetry.logfire_adapter import (
     create_tool_span_for_logfire,
     format_for_logfire_llm,
+    get_logfire,
 )
 from claude_telemetry.telemetry import safe_span_operation
 
@@ -292,6 +293,20 @@ class TelemetryHooks:
         logger.debug(f"🎯 Ending span: {span}")
         span.end()
         logger.debug("✅ Span ended successfully")
+
+        # Force flush to ensure spans are sent immediately
+        logfire = get_logfire()
+        if logfire:
+            logger.debug("🎯 Flushing Logfire spans")
+            logfire.force_flush()
+            logger.debug("✅ Logfire flushed")
+        else:
+            # For non-Logfire backends, flush the tracer provider
+            logger.debug("🎯 Flushing OTEL tracer provider")
+            tracer_provider = trace.get_tracer_provider()
+            if hasattr(tracer_provider, "force_flush"):
+                tracer_provider.force_flush()
+                logger.debug("✅ Tracer provider flushed")
 
         # Clear context
         current_session_span.set(None)
