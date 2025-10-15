@@ -63,12 +63,12 @@ class TestUserPromptSubmit:
         hooks.tracer = mock_tracer
 
         input_data = {"prompt": "Test prompt", "session_id": "test-session"}
-        ctx = {"options": {"model": "claude-3-opus-20240229"}}
+        ctx = {"options": {"model": "opus"}}
 
         await hooks.on_user_prompt_submit(input_data, None, ctx)
 
         assert hooks.metrics["prompt"] == "Test prompt"
-        assert hooks.metrics["model"] == "claude-3-opus-20240229"
+        assert hooks.metrics["model"] == "opus"
         assert hooks.metrics["input_tokens"] == 0
         assert hooks.metrics["output_tokens"] == 0
         assert hooks.metrics["tools_used"] == 0

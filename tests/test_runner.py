@@ -207,7 +207,7 @@ class TestRunAgentWithTelemetry:
 
     @pytest.mark.asyncio
     async def test_passes_model_to_options(self, mocker):
-        """Test that model parameter is passed to options."""
+        """Test that model parameter is passed via extra_args."""
         mocker.patch("claude_telemetry.runner.configure_telemetry")
         mock_hooks = mocker.MagicMock()
         mock_hooks.session_span = mocker.MagicMock()
@@ -232,14 +232,15 @@ class TestRunAgentWithTelemetry:
             return_value=_empty_async_generator()
         )
 
-        await run_agent_with_telemetry(prompt="Test", model="claude-3-opus-20240229")
+        await run_agent_with_telemetry(prompt="Test", extra_args={"model": "opus"})
 
-        # Verify model was set on options
-        assert mock_options.model == "claude-3-opus-20240229"
+        # Verify extra_args was passed to options
+        call_kwargs = mock_options_class.call_args[1]
+        assert call_kwargs["extra_args"] == {"model": "opus"}
 
     @pytest.mark.asyncio
     async def test_passes_allowed_tools_to_options(self, mocker):
-        """Test that allowed_tools parameter is passed to options."""
+        """Test that allowed_tools parameter is passed via extra_args."""
         mocker.patch("claude_telemetry.runner.configure_telemetry")
         mock_hooks = mocker.MagicMock()
         mock_hooks.session_span = mocker.MagicMock()
@@ -261,9 +262,9 @@ class TestRunAgentWithTelemetry:
         )
 
         await run_agent_with_telemetry(
-            prompt="Test", allowed_tools=["Read", "Write", "Bash"]
+            prompt="Test", extra_args={"allowed-tools": "Read,Write,Bash"}
         )
 
-        # Verify allowed_tools was passed to options
+        # Verify extra_args was passed to options
         call_kwargs = mock_options_class.call_args[1]
-        assert call_kwargs["allowed_tools"] == ["Read", "Write", "Bash"]
+        assert call_kwargs["extra_args"] == {"allowed-tools": "Read,Write,Bash"}

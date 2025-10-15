@@ -1,42 +1,82 @@
-# claude_telemetry
+# Observability for Claude Code
 
 [![CI](https://github.com/TechNickAI/claude_telemetry/actions/workflows/ci.yml/badge.svg)](https://github.com/TechNickAI/claude_telemetry/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-**See what your Claude agents are actually doing—especially when running headless.**
+`claude_telemetry` wraps the Claude Code CLI with full observability. Every tool call,
+token count, and cost flows to your OTEL backend as structured traces.
 
 ## The Problem
 
-You're using Claude Code to build powerful agents. It works beautifully in your
-terminal.
+Claude Code works beautifully in your terminal. But when you run agents headless—in
+CI/CD, cron jobs, production, or remote servers—you lose visibility into what's
+happening. You can't see which tools were called, don't know token usage or costs, have
+no context when debugging failures, and can't optimize without re-running locally.
 
-But the moment you run it **headless** (CI/CD, cron jobs, production, remote servers),
-you're flying blind:
-
-- ❌ Can't see which tools the agent is calling
-- ❌ Don't know token usage or costs
-- ❌ No idea why it failed (or what it did before failing)
-- ❌ Can't debug without re-running locally
-
-**Claude Code gives you no observability in headless environments.**
+Headless environments lack the rich console output you get during development.
 
 ## The Solution
 
-`claude_telemetry` captures everything your agent does and sends it to your
-observability platform. One line of code, full visibility:
+`claude_telemetry` is a thin wrapper around the Claude Code CLI that adds observability.
+It passes through all Claude Code flags unchanged while capturing execution traces.
+Works with any OTEL backend—Logfire, Datadog, Honeycomb, Grafana. See exactly what
+happened in production, debug remote failures without local reproduction, and track
+costs to optimize expensive workflows.
 
-- ✅ Every prompt, tool call, token count, and cost as structured traces
-- ✅ Works with any OTEL backend: Logfire, Datadog, Honeycomb, Grafana
-- ✅ See exactly what happened in production
-- ✅ Debug remote failures without local reproduction
-- ✅ Track costs and optimize expensive workflows
-
-**Your agents become observable—whether local or headless.**
+Your agents become observable whether local or headless.
 
 ## Quick Start
 
-**1. Install:**
+The simplest way to add observability: swap `claude` for `claudia` on the command line.
+
+```bash
+# Before
+claude code "Analyze my project and suggest improvements"
+
+# After - same command, now with observability
+claudia "Analyze my project and suggest improvements"
+```
+
+That's it. Every flag you use with `claude code` works with `claudia`. The behavior is
+identical, but now you get full traces in your observability platform.
+
+## For Developers
+
+If you're already using `claude code` in your workflow, switching to `claudia` gives you
+instant observability with zero behavior changes.
+
+**Command-line usage:**
+
+```bash
+# Your existing workflow
+claude code --model opus "Refactor this module"
+
+# Same command, now observable
+claudia --model opus "Refactor this module"
+```
+
+**In scripts and automation:**
+
+```bash
+#!/bin/bash
+# CI/CD, cron jobs, or automation scripts
+
+# Before - no visibility into what happened
+claude code "Run tests and fix any failures"
+
+# After - full traces in your observability platform
+claudia "Run tests and fix any failures"
+```
+
+**The result:**
+
+When you use `claudia`, you get the exact same output in your terminal as `claude code`.
+But now your observability platform shows every tool call, token count, cost, and
+timing. Debug headless failures, track production costs, and optimize expensive
+workflows—all without changing how you work.
+
+### Installation
 
 ```bash
 # Basic installation - works with any OTEL backend
@@ -46,7 +86,9 @@ pip install claude_telemetry
 pip install "claude_telemetry[logfire]"
 ```
 
-**2. Add one line to your code:**
+### For Python Scripts
+
+Add one line to your code:
 
 ```python
 from claude_telemetry import run_agent_with_telemetry
@@ -54,11 +96,12 @@ from claude_telemetry import run_agent_with_telemetry
 # Instead of using Claude SDK directly, use this wrapper:
 await run_agent_with_telemetry(
     prompt="Analyze my project and suggest improvements",
-    allowed_tools=["Read", "Write", "Bash"],
 )
 ```
 
-**3. Configure your observability backend:**
+### Configure Your Backend
+
+Same configuration for CLI and Python:
 
 ```bash
 # For Logfire (get token from logfire.pydantic.dev)
@@ -69,30 +112,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT="https://your-otel-endpoint.com"
 export OTEL_EXPORTER_OTLP_HEADERS="authorization=Bearer your-token"
 ```
 
-**That's it.** Your agent's telemetry is now flowing to your observability platform.
-
-## Installation Options
-
-### From PyPI (Recommended)
-
-```bash
-pip install claude_telemetry              # Basic OTEL support
-pip install "claude_telemetry[logfire]"   # Enhanced Logfire features
-```
-
-### From Source
-
-```bash
-pip install git+https://github.com/TechNickAI/claude_telemetry.git
-```
-
-### For Development
-
-```bash
-git clone https://github.com/TechNickAI/claude_telemetry.git
-cd claude_telemetry
-pip install -e ".[dev]"
-```
+That's it. Your agent's telemetry is now flowing to your observability platform.
 
 ## Usage Examples
 
@@ -106,17 +126,12 @@ from claude_telemetry import run_agent_with_telemetry
 
 await run_agent_with_telemetry(
     prompt="Analyze the latest logs and create a report",
-    system_prompt="You are a DevOps assistant.",
-    allowed_tools=["Read", "Write", "Bash"],
+    extra_args={"model": "sonnet"},
 )
 ```
 
-Now go to your observability dashboard and see exactly what happened:
-
-- Which tools were called
-- What errors occurred
-- How many tokens were used
-- Total cost of the operation
+Your observability dashboard shows which tools were called, what errors occurred, how
+many tokens were used, and the total cost of the operation.
 
 ### Local Development with Visibility
 
@@ -128,7 +143,6 @@ from claude_telemetry import run_agent_with_telemetry
 # Your normal Claude Code workflow, now with observability
 await run_agent_with_telemetry(
     prompt="Refactor the authentication module",
-    allowed_tools=["Read", "Write"],
 )
 ```
 
@@ -156,25 +170,30 @@ trace.set_tracer_provider(provider)
 # Run with telemetry
 await run_agent_with_telemetry(
     prompt="Your task here",
-    system_prompt="Your instructions",
 )
 ```
 
 ### CLI Usage
 
-For quick one-off tasks or scripts:
+The `claudia` CLI passes all Claude Code flags through unchanged while adding
+observability:
 
 ```bash
+# Basic usage - just like `claude code`
 claudia "Analyze my recent emails and create a summary"
+
+# Pass any Claude Code flag
+claudia --model opus "Refactor this module"
+claudia --permission-mode bypassPermissions "Run the tests"
+claudia --debug "Why is this failing?"
+
+# Combine multiple flags - all forward to Claude Code
+claudia --model haiku --permission-mode bypassPermissions "Quick task"
 ```
 
-The `claudia` CLI wraps your prompt with full telemetry. Perfect for:
-
-- Quick agent tasks from terminal
-- Shell scripts and automation
-- Testing prompts with visibility
-
-Configure your backend via environment variables (same as library usage).
+The `claudia` command accepts the same flags as `claude code`. It wraps the CLI with
+telemetry hooks that capture execution without changing behavior. Configure your
+observability backend via environment variables (same as library usage).
 
 ## What Gets Captured
 
@@ -217,19 +236,12 @@ claude.agent.run (parent span)
 
 ## Logfire Special Features
 
-When using Logfire, the package enables LLM-specific UI features:
-
-**LLM span tagging:**
-
-- Spans tagged with `LLM` show in Logfire's LLM UI
-- Request/response formatted for token visualization
-- Tool calls displayed as structured data
-
-**Enhanced formatting:**
-
-- Emoji indicators (🤖 for agents, 🔧 for tools, ✅ for completion)
-- Proper nesting in console output
-- Readable span titles (task description, not "Message with model X")
+When using Logfire, the package enables LLM-specific UI features. Spans tagged with
+`LLM` show in Logfire's LLM UI with request/response formatted for token visualization
+and tool calls displayed as structured data. Enhanced formatting includes emoji
+indicators (🤖 for agents, 🔧 for tools, ✅ for completion), proper nesting in console
+output, and readable span titles showing task descriptions instead of generic "Message
+with model X" text.
 
 This happens automatically when `LOGFIRE_TOKEN` is set. With other backends, you get
 standard OTEL spans.
@@ -280,56 +292,56 @@ await run_agent_with_telemetry(
 
 ### MCP Servers
 
-Place `.mcp.json` in your project root:
+MCP servers work the same way as with `claude code`. Configure them using
+`claude mcp add`:
 
-```json
-{
-  "mcpServers": {
-    "mcp-hubby": {
-      "url": "https://connect.mcphubby.ai/mcp",
-      "transport": "http",
-      "headers": {
-        "Authorization": "Bearer YOUR_TOKEN"
-      }
-    },
-    "local-tools": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem"]
-    }
-  }
-}
+```bash
+# Add an MCP server using Claude's config system
+claude mcp add mcp-hubby --url https://connect.mcphubby.ai/mcp
+
+# Or use project-local .mcp.json (same format as Claude Code)
+# The wrapper loads user, project, and local settings automatically
 ```
 
-Both HTTP and stdio MCP servers are supported. The package converts your config to SDK
-format automatically.
+The wrapper passes `setting_sources=["user", "project", "local"]` to the SDK, which
+means it loads MCP servers from the same places `claude code` does. No special
+configuration needed—if it works with `claude code`, it works with `claudia`.
+
+**Need help with MCP servers?** Check out [MCP Hubby](https://mcphubby.ai)—a single
+gateway to all your services (Gmail, Notion, Slack, etc.) that reduces context usage by
+95%. One MCP connection instead of dozens.
 
 ## API
 
 ```python
 async def run_agent_with_telemetry(
     prompt: str,
-    system_prompt: Optional[str] = None,
-    model: str = "claude-3-5-sonnet-20241022",
-    allowed_tools: Optional[List[str]] = None,
-    use_mcp: bool = True,
-    tracer_provider: Optional[TracerProvider] = None,
+    extra_args: dict[str, str | None] | None = None,
+    tracer_provider: TracerProvider | None = None,
+    debug: bool = False,
 )
 ```
 
 **Parameters:**
 
-- `prompt` - Task for Claude
-- `system_prompt` - System instructions
-- `model` - Claude model (default: claude-3-5-sonnet-20241022)
-- `allowed_tools` - SDK tool names (e.g., `["Read", "Write", "Bash"]`)
-- `use_mcp` - Load MCP servers from `.mcp.json` (default: True)
+- `prompt` - Task for Claude Code
+- `extra_args` - Claude Code CLI flags as a dictionary. Any flag you can pass to
+  `claude code` works here (e.g.,
+  `{"model": "opus", "permission-mode": "bypassPermissions"}`)
 - `tracer_provider` - Custom OTEL tracer provider (optional, auto-detected if not
   provided)
+- `debug` - Enable Claude CLI debug mode
 
 **Returns:**
 
 - Nothing directly. Prints Claude's responses to console and sends all telemetry via
   OTEL.
+
+**How it works:**
+
+The function wraps the Claude Code SDK with observability hooks. It converts
+`extra_args` to CLI flags and passes them through unchanged. The SDK runs exactly as if
+you called `claude code` directly, but telemetry hooks capture every event.
 
 **Example:**
 
@@ -338,11 +350,10 @@ import asyncio
 from claude_telemetry import run_agent_with_telemetry
 
 async def main():
+    # Any flag from `claude code --help` works in extra_args
     await run_agent_with_telemetry(
         prompt="List Python files and create a summary",
-        system_prompt="You are a helpful coding assistant.",
-        allowed_tools=["Bash", "Glob", "Write"],
-        use_mcp=False,
+        extra_args={"model": "sonnet", "permission-mode": "bypassPermissions"},
     )
 
 asyncio.run(main())
@@ -350,14 +361,26 @@ asyncio.run(main())
 
 ## How It Works
 
-The package uses Claude SDK's hook system to capture execution:
+`claude_telemetry` is a thin observability layer around the Claude Code SDK. It uses the
+SDK's hook system to capture execution without modifying behavior.
 
-**Hooks registered:**
+**Pass-through architecture:**
+
+The `extra_args` dictionary passes directly to the Claude Code SDK as CLI flags. When
+you call `run_agent_with_telemetry(prompt="...", extra_args={"model": "opus"})`, the SDK
+receives exactly what `claude code --model opus` would pass. The library doesn't
+interpret or validate flags—it forwards them unchanged. This means any flag that works
+with `claude code` works here, including future flags not yet released.
+
+**Observability hooks:**
 
 - `UserPromptSubmit` - Opens parent span, logs prompt
 - `PreToolUse` - Opens child span for tool, captures input
 - `PostToolUse` - Captures output, closes tool span
 - Session completion - Adds final metrics, closes parent span
+
+Hooks are async callbacks that run during SDK execution. They capture telemetry data
+without blocking or modifying the agent's behavior.
 
 **OTEL export:**
 
@@ -375,34 +398,40 @@ The package uses Claude SDK's hook system to capture execution:
 
 ## Architecture Decisions
 
+### Why Pass-Through Instead of Parameters?
+
+Earlier versions exposed individual parameters like `model`, `allowed_tools`, etc. This
+created maintenance burden—every new Claude Code flag required updating the wrapper's
+signature. The pass-through architecture using `extra_args` eliminates this problem.
+
+When you pass `extra_args={"model": "opus"}`, the library converts it to `--model opus`
+and forwards it to the SDK unchanged. The library doesn't know what flags are valid—it
+trusts the SDK to handle them. This means new Claude Code features work immediately
+without updating `claude_telemetry`.
+
+The CLI uses plain argument parsing to separate observability flags (`--logfire-token`,
+`--otel-endpoint`) from Claude Code flags. Everything else passes through. This keeps
+the wrapper thin and maintainable.
+
 ### Why OpenTelemetry?
 
-OpenTelemetry is the industry standard for observability. Using it means:
-
-- Works with any observability backend
-- Doesn't lock users into specific vendors
-- Integrates with existing infrastructure
-- Future-proof (CNCF project with wide adoption)
+OpenTelemetry is the industry standard for observability. Using it means the package
+works with any observability backend, doesn't lock users into specific vendors,
+integrates with existing infrastructure, and is future-proof as a CNCF project with wide
+adoption.
 
 ### Why Special-Case Logfire?
 
 Logfire has LLM-specific UI features that require specific span formatting. When Logfire
-is detected, the package:
-
-- Tags spans for LLM UI
-- Formats request/response for token visualization
-- Uses Logfire's SDK for optimal integration
-
-This is additive - standard OTEL still works, Logfire just gets enhanced features.
+is detected, the package tags spans for LLM UI, formats request/response for token
+visualization, and uses Logfire's SDK for optimal integration. This is additive—standard
+OTEL still works, Logfire just gets enhanced features.
 
 ### Why Hooks Instead of Wrappers?
 
-The Claude SDK provides hooks specifically for observability. Using them:
-
-- Captures all events without modifying SDK code
-- Works across SDK updates
-- Clean separation of concerns
-- No monkey-patching required
+The Claude SDK provides hooks specifically for observability. Using them captures all
+events without modifying SDK code, works across SDK updates, maintains clean separation
+of concerns, and requires no monkey-patching.
 
 ## Supported Backends
 
@@ -473,17 +502,21 @@ python examples/otel_example.py
 claude_telemetry/
   claude_telemetry/
     __init__.py           # Package exports
-    runner.py             # Main agent runner with hooks
+    runner.py             # Async agent runner with observability hooks
+    sync.py               # Sync wrapper for runner
+    hooks.py              # Telemetry hook implementations
     telemetry.py          # OTEL configuration and setup
     logfire_adapter.py    # Logfire-specific enhancements
-    cli.py                # CLI entry point (claudia command)
+    cli.py                # CLI entry point with pass-through arg parsing
+    helpers/              # Logger and utilities
   examples/
     logfire_example.py    # Logfire usage
     otel_example.py       # Generic OTEL usage
     honeycomb_example.py  # Honeycomb setup
   tests/
     test_telemetry.py     # Core telemetry tests
-    test_logfire.py       # Logfire integration tests
+    test_cli_parsing.py   # CLI argument pass-through tests
+    test_hooks.py         # Hook behavior tests
   pyproject.toml          # Package config
   README.md
   LICENSE
@@ -502,7 +535,7 @@ span.set_attribute("model", "...")
 
 # Logfire LLM enhancement
 span.set_attribute("request_data", {
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "sonnet",
     "messages": [{"role": "user", "content": "..."}]
 })
 span.set_attribute("response_data", {
@@ -512,34 +545,6 @@ span.set_attribute("response_data", {
 ```
 
 Logfire's UI parses these attributes to show token flow and LLM-specific visualizations.
-
-### MCP Server Loading
-
-The package needs to convert `.mcp.json` format to Claude SDK format:
-
-```python
-# User's .mcp.json
-{
-  "mcpServers": {
-    "mcp-hubby": {
-      "transport": "http",  # User format
-      "url": "...",
-      "headers": {...}
-    }
-  }
-}
-
-# Convert to SDK format
-{
-  "mcp-hubby": {
-    "type": "http",  # SDK format
-    "url": "...",
-    "headers": {...}
-  }
-}
-```
-
-Key conversion: `transport` → `type`
 
 ### Hook Implementation
 
@@ -570,14 +575,19 @@ options = ClaudeAgentOptions(
 
 ## FAQ & Troubleshooting
 
+### Does `claudia` support all Claude Code flags?
+
+Yes. The pass-through architecture means any flag that works with `claude code` works
+with `claudia`. We don't maintain a list of supported flags—we just forward everything
+to the SDK unchanged. This includes flags that don't exist yet. When Anthropic releases
+new Claude Code features, they work immediately without updating `claude_telemetry`.
+
 ### Why not just use Logfire directly?
 
-You can! But `claude_telemetry`:
-
-- **Works with ANY OTEL backend** (not just Logfire)
-- **Pre-configured hooks** for Claude agents specifically
-- **Captures LLM-specific metrics** (tokens, costs, tool calls)
-- **Saves you setup time** - no need to instrument everything manually
+You can! But `claude_telemetry` works with any OTEL backend (not just Logfire), provides
+pre-configured hooks for Claude agents specifically, captures LLM-specific metrics like
+tokens, costs, and tool calls, and saves you setup time—no need to instrument everything
+manually.
 
 Use this if you want observability with minimal code changes.
 
@@ -614,7 +624,7 @@ completion.
 **High costs showing in traces:**
 
 - This is valuable data! Use it to optimize your prompts
-- Consider using `claude-3-haiku` for cheaper operations
+- Consider using `haiku` model for cheaper operations
 - Review which tools are being called unnecessarily
 
 ## License
