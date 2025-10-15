@@ -160,43 +160,46 @@ await run_agent_with_telemetry(
 )
 ```
 
-**From the command line:**
+### CLI Usage
+
+For quick one-off tasks or scripts:
 
 ```bash
-claudia "Analyze my recent emails"
+claudia "Analyze my recent emails and create a summary"
 ```
 
-The CLI uses Logfire by default. Configure other backends via OTEL environment
-variables.
+The `claudia` CLI wraps your prompt with full telemetry. Perfect for:
+
+- Quick agent tasks from terminal
+- Shell scripts and automation
+- Testing prompts with visibility
+
+Configure your backend via environment variables (same as library usage).
 
 ## What Gets Captured
 
-Every agent execution creates one parent span containing:
+Every agent run creates a full trace showing exactly what happened:
 
-**Span attributes:**
+**Per execution:**
 
-- `prompt` - The task given to Claude
-- `model` - Claude model used
-- `input_tokens` - Tokens sent to Claude
-- `output_tokens` - Tokens generated
-- `total_tokens` - Complete count
-- `cost_usd` - Execution cost
-- `tools_used` - Number of tool calls
-- `turns` - Conversation rounds
+- 📝 Prompt and system instructions
+- 🤖 Model used
+- 🔢 Token counts (input/output/total)
+- 💰 Cost in USD
+- 🔧 Number of tool calls
+- ⏱️ Execution time
+- ❌ Any errors or failures
 
-**Child spans for each tool:**
+**Per tool call:**
 
-- Tool name
-- Tool inputs (as attributes)
-- Tool outputs (as attributes)
-- Execution time
+- Tool name (Read, Write, Bash, etc.)
+- Tool inputs
+- Tool outputs
+- Individual execution time
+- Success/failure status
 
-**Events within spans:**
-
-- User prompt submitted
-- Tool calling started
-- Tool completed
-- Agent finished
+This gives you complete visibility into what your agent did, why it failed, and how much
+it cost.
 
 ## Span Hierarchy
 
@@ -233,29 +236,47 @@ standard OTEL spans.
 
 ## Configuration
 
-### Logfire (default)
+### Environment Variables
+
+**Logfire (easiest):**
 
 ```bash
-export LOGFIRE_TOKEN="your_token_here"
+export LOGFIRE_TOKEN="your_token"  # Get from logfire.pydantic.dev
 ```
 
-The package detects the token and configures:
-
-- EU region endpoint (or US via `LOGFIRE_BASE_URL`)
-- LLM span formatting
-- Proper attribute structure for Logfire's UI
-
-### Other OTEL Backends
-
-Configure via standard OTEL environment variables:
+**Any OTEL backend:**
 
 ```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT="https://api.honeycomb.io"
-export OTEL_EXPORTER_OTLP_HEADERS="x-honeycomb-team=your_key"
-export OTEL_SERVICE_NAME="claude-agents"
+export OTEL_EXPORTER_OTLP_ENDPOINT="https://your-endpoint.com/v1/traces"
+export OTEL_EXPORTER_OTLP_HEADERS="authorization=Bearer your-token"
+export OTEL_SERVICE_NAME="my-claude-agents"  # Optional, defaults to "claude-agents"
 ```
 
-Or programmatically (see Usage section above).
+**Debug mode:**
+
+```bash
+export OTEL_DEBUG=1  # Verbose telemetry logging
+```
+
+### Programmatic Configuration
+
+For more control, configure the tracer provider yourself:
+
+```python
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from claude_telemetry import run_agent_with_telemetry
+
+provider = TracerProvider()
+# ... add your processors ...
+trace.set_tracer_provider(provider)
+
+# Pass it to the runner
+await run_agent_with_telemetry(
+    prompt="Your task",
+    tracer_provider=provider,
+)
+```
 
 ### MCP Servers
 
@@ -547,27 +568,54 @@ options = ClaudeAgentOptions(
 )
 ```
 
-## Troubleshooting
+## FAQ & Troubleshooting
+
+### Why not just use Logfire directly?
+
+You can! But `claude_telemetry`:
+
+- **Works with ANY OTEL backend** (not just Logfire)
+- **Pre-configured hooks** for Claude agents specifically
+- **Captures LLM-specific metrics** (tokens, costs, tool calls)
+- **Saves you setup time** - no need to instrument everything manually
+
+Use this if you want observability with minimal code changes.
+
+### Does this add latency?
+
+Negligible. Telemetry is async and doesn't block agent execution. Typical overhead:
+<10ms per operation.
+
+### What about streaming responses?
+
+Fully supported! Streaming responses are captured and sent to telemetry after
+completion.
+
+### Common Issues
 
 **No traces appearing:**
 
-Check your OTEL configuration. Verify the endpoint and credentials. Test with a simple
-OTEL example first to confirm backend connectivity.
+- Check your OTEL endpoint is reachable
+- Verify environment variables are set
+- Check console for error messages about telemetry connection
 
 **Logfire LLM UI not showing:**
 
-Ensure `LOGFIRE_TOKEN` is set. The package must detect it to enable LLM formatting.
-Check console for "Logfire project URL" to confirm connection.
+- Ensure `LOGFIRE_TOKEN` is set
+- Install the `logfire` extra: `pip install "claude_telemetry[logfire]"`
+- Check console for "Logfire project URL" to confirm connection
 
-**MCP servers not loading:**
+**Agent runs but no telemetry:**
 
-Validate `.mcp.json` syntax. Ensure `transport` field is present for HTTP servers. Check
-MCP server health: `claude mcp list`
+- Make sure you're using `run_agent_with_telemetry()` wrapper
+- Check that backend environment variables are set
+- Try setting `OTEL_DEBUG=1` for verbose logging
 
-**Tool calls missing from traces:**
+**High costs showing in traces:**
 
-Verify tools are enabled via `allowed_tools` or `use_mcp=True`. Check console output to
-confirm tools are being called.
+- This is valuable data! Use it to optimize your prompts
+- Consider using `claude-3-haiku` for cheaper operations
+- Review which tools are being called unnecessarily
 
 ## License
 
