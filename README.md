@@ -1,7 +1,7 @@
 # claude_telemetry
 
 [![CI](https://github.com/TechNickAI/claude_telemetry/actions/workflows/ci.yml/badge.svg)](https://github.com/TechNickAI/claude_telemetry/actions/workflows/ci.yml)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 OpenTelemetry instrumentation for Claude agents.
@@ -12,17 +12,23 @@ collector.
 
 ## Installation
 
-### Basic Installation (OTEL only)
+### From PyPI (Recommended)
 
 ```bash
-# Minimal installation - works with any OTEL backend
-pip install git+https://github.com/TechNickAI/claude_telemetry.git
+# Basic installation - works with any OTEL backend
+pip install claude_telemetry
+
+# Or with Logfire support for enhanced LLM telemetry
+pip install "claude_telemetry[logfire]"
 ```
 
-### With Logfire Support
+### From Source
 
 ```bash
-# Includes Logfire for enhanced LLM telemetry
+# Basic installation
+pip install git+https://github.com/TechNickAI/claude_telemetry.git
+
+# With Logfire support
 pip install "git+https://github.com/TechNickAI/claude_telemetry.git#egg=claude_telemetry[logfire]"
 ```
 
@@ -498,7 +504,7 @@ confirm tools are being called.
 
 ## License
 
-MIT License
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Credits
 
