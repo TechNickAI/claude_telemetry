@@ -6,6 +6,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from claude_telemetry.helpers.logger import logger
 from claude_telemetry.hooks import TelemetryHooks
 from claude_telemetry.telemetry import configure_telemetry
 
@@ -225,9 +226,9 @@ async def run_agent_interactive(  # noqa: PLR0915
                         # Update session metrics
                         session_metrics["prompts_count"] += 1
 
-                    finally:
-                        # Complete telemetry for this prompt
-                        hooks.complete_session()
+                    except Exception as e:
+                        logger.exception(f"Error during prompt execution: {e}")
+                        raise
 
                 except KeyboardInterrupt:
                     ctrl_c_count += 1
@@ -242,7 +243,10 @@ async def run_agent_interactive(  # noqa: PLR0915
                     break
 
         finally:
-            pass  # Client is automatically disconnected by async context manager
+            # Complete telemetry session after ALL prompts
+            if hooks.session_span:
+                hooks.complete_session()
+
         # Show session summary
         console.print("\n" + "=" * 50)
         console.print(

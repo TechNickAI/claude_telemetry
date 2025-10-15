@@ -34,7 +34,12 @@ class TelemetryHooks:
         """
         # Extract prompt from input
         prompt = input_data["prompt"]
-        model = ctx.get("options", {}).get("model", "claude-sonnet-4-20250514")
+        # Extract model from context - NO default, let it be None if not set
+        model = (
+            ctx["options"]["model"]
+            if "options" in ctx and "model" in ctx["options"]
+            else "unknown"
+        )
 
         # Initialize metrics
         self.metrics = {
