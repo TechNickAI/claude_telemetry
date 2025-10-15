@@ -1,0 +1,219 @@
+---
+description: When we are creating prompts that will be used by an LLM for agents
+alwaysApply: false
+---
+
+# Prompt Engineering Best Practices
+
+## Understanding LLM Token Prediction
+
+### How LLMs Actually Process Prompts
+
+Understanding the mechanics of LLM processing is crucial for effective prompt design:
+
+#### Sequential Token Prediction
+
+- LLMs read left to right, predicting each token based on everything before it
+- Early tokens shape all that follows—creating a "first impression" that persists
+- Each token's prediction is influenced by ALL previous tokens, creating cascading
+  effects
+
+#### Attention Mechanisms
+
+- Earlier tokens receive more attention passes during processing
+- The model repeatedly references early context when interpreting later content
+- This creates a foundation effect where initial framing heavily influences all
+  subsequent reasoning
+
+#### Context Window Effects
+
+- Primacy: Information at the beginning is strongly encoded and influences everything
+- Recency: Information near the end is fresh in "working memory" for decisions
+- Middle Fade: Information in the middle can get "lost" if not properly structured
+
+#### Priming & Anchoring
+
+- Early statements act as anchors that bias interpretation of everything else
+- The model's "persona" crystallizes early and remains consistent throughout
+- Initial framing determines the lens through which all data is viewed
+
+### Implications for Prompt Design
+
+SYSTEM PROMPT (Static Foundation) - the agent's DNA:
+
+- Identity First: Who the agent IS fundamentally shapes HOW it thinks
+- Core Principles: Unwavering rules or beliefs that guide decisions
+- Operational Framework: Methodology for the task
+- Capabilities & Constraints: What the agent can and cannot do
+
+USER PROMPT (Dynamic Context) - real-time inputs:
+
+- Current Context: Immediate situation or environment
+- Specific Data: The information to process
+- Task Request: Clear ask with expected output format
+
+## Pattern Reinforcement Through Examples
+
+LLMs learn patterns from what you show them, regardless of labels.
+
+### How LLMs Process Examples
+
+When you provide code examples, LLMs encode those patterns whether you label them
+positively or negatively:
+
+1. Pattern Matching Over Labels: LLMs reproduce structural patterns. Code structure
+   creates strong activation in attention. Text labels like "wrong" are weak signals
+   that don't override pattern encoding.
+
+2. Training Data Amplification: Patterns frequent in training data get reinforced when
+   you show more examples, even if marked unwanted. You're adding to the total times the
+   model has seen that pattern.
+
+3. Negation Complexity: Understanding negation requires multiple reasoning steps
+   (understand concept, understand negation, invert preference) versus direct
+   instruction (understand and apply). Each step adds error probability.
+
+4. Attention Weighting: All tokens in context receive attention. Structural patterns
+   activate high attention regardless of surrounding text.
+
+### Writing Effective Instructions
+
+Flood context with desired patterns. Show 5+ examples of the standard approach. If there
+are legitimate exceptions, show 1 example clearly marked. Maintain at least 5:1 ratio
+favoring the desired pattern.
+
+Describe alternatives in prose rather than showing code. For example: "Keep imports at
+file level rather than inside functions" or "Write straightforward code without
+defensive attribute checks."
+
+Use positive framing. Frame instructions as "Write code like this" rather than "Avoid
+that." Focus on what the model should generate.
+
+Structure for maximum impact:
+
+- Lead with purpose and identity
+- Provide 5+ examples of standard patterns
+- Add 1-2 examples of rare exceptions if truly needed
+- Describe alternatives in prose
+- Put most common patterns first
+
+### The Mechanism
+
+This mirrors the "pink elephant effect": to understand what not to think about, the mind
+must first construct that thought. LLMs encode patterns they're shown, regardless of
+markers like "wrong" or "avoid."
+
+Research shows models trained on positive examples outperform those exposed to negative
+examples. Flood the context with desired patterns, minimize or eliminate unwanted
+pattern examples, and describe alternatives in prose without code demonstrations.
+
+## Goals Over Process
+
+LLMs are capable of sophisticated reasoning and problem-solving. Trust them to figure
+out how to achieve goals rather than prescribing exact steps.
+
+### The Over-Prescription Problem
+
+When prompts become overly prescriptive, they:
+
+- Waste tokens on process details the LLM can figure out
+- Create brittle instructions that fail when context changes
+- Treat the LLM as a script executor rather than an intelligent agent
+- Add excessive formatting (numbered steps, nested bullets, bold headers) that doesn't
+  help the LLM understand the goal
+
+### Writing for Intelligence
+
+Focus on WHAT needs to happen, not HOW to do it:
+
+```
+❌ Over-prescriptive:
+Step 1: Check if file exists
+  - If exists:
+    a. Use diff to compare
+    b. If identical, skip
+    c. If different:
+       i. Analyze differences
+       ii. Ask user for decision
+  - If doesn't exist:
+    a. Copy directly
+
+✓ Goal-focused:
+Before copying files, check if they already exist. If they do, use diff to compare them.
+If identical, skip it. If different, show what changed and ask the user what they want
+to do.
+```
+
+The second version communicates the same goal with less formatting, fewer tokens, and
+more flexibility for the LLM to handle edge cases intelligently.
+
+### Principles for Empowering Prompts
+
+Describe outcomes, not procedures: "Ensure the configuration files are copied without
+overwriting user customizations" vs "Step 1: List all files. Step 2: For each file..."
+
+Trust intelligence: Assume the LLM can figure out reasonable approaches. Provide
+constraints and goals, not algorithms.
+
+Use prose over structure: Paragraphs communicate goals naturally. Excessive formatting
+(numbered steps, nested bullets) adds noise without improving understanding.
+
+Specify boundaries, not paths: Tell the LLM what it can't do (don't silently overwrite
+files) rather than dictating each decision point.
+
+### When to Prescribe
+
+Sometimes specific steps matter:
+
+- Domain-specific protocols that must be followed exactly
+- Legal or compliance requirements with no flexibility
+- Complex multi-step processes where order is critical and non-obvious
+
+But even then, explain why the process matters, not just what to do.
+
+## Core Principles
+
+### Define Clear Objectives
+
+- State the exact purpose at the beginning
+- Specify expected outputs and format
+- Establish clear boundaries of responsibility
+
+### Provide Relevant Context
+
+- Include only details needed for the task
+- Structure complex info into digestible sections
+- Use concrete examples for abstract concepts
+
+### Specify Output Format
+
+- Define exact response structure
+- Name components for complex outputs
+- Add limits (words, items) where helpful
+
+## System Prompt Construction
+
+- Agent Identity: role + expertise
+- Knowledge Framework: domain facts, constraints
+- Response Guidelines: style, tone, completeness
+- Output Requirements: what must be present/absent
+
+## User Prompt Construction
+
+- Current State: what we're analyzing now
+- Specific Data: parameters, metrics, context objects
+- Decision Ask: clear, prioritized deliverables
+
+## Optimization Techniques
+
+- Role/persona engineering
+- (Optional) step-by-step reasoning requests
+- Few-shot examples for complex formats
+- Keep system stable; vary user prompt per request
+- Token economy: concise but complete; avoid redundancy
+
+## Common Pitfalls
+
+- Ambiguous asks ("analyze thoroughly")
+- Vague quality criteria ("good analysis")
+- Excessive formatting that wastes tokens

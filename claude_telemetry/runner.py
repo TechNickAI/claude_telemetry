@@ -11,6 +11,36 @@ from claude_telemetry.hooks import TelemetryHooks
 from claude_telemetry.telemetry import configure_telemetry
 
 
+def extract_message_text(message) -> str:
+    """
+    Extract text content from Claude SDK message.
+
+    Handles different message content types:
+    - List of text blocks
+    - String content
+    - Other content types (converted to string)
+
+    Args:
+        message: Claude SDK message object
+
+    Returns:
+        Extracted text content or empty string
+    """
+    if not hasattr(message, "content"):
+        return ""
+
+    content = message.content
+
+    if isinstance(content, list):
+        # Extract text from list of blocks
+        return "".join(block.text for block in content if hasattr(block, "text"))
+    elif isinstance(content, str):
+        return content
+    else:
+        # Fallback for other types
+        return str(content)
+
+
 async def run_agent_with_telemetry(
     prompt: str,
     system_prompt: str | None = None,
@@ -86,29 +116,18 @@ async def run_agent_with_telemetry(
         options.model = model
 
     # Use async context manager for proper resource handling
+    console = Console()
     try:
         async with ClaudeSDKClient(options=options) as client:
             # Send the query
             await client.query(prompt=prompt)
 
             # Receive and process responses
-            response_text = ""
             async for message in client.receive_response():
-                # Handle different message types
-                if hasattr(message, "content"):
-                    # Extract text from content (could be a list of TextBlocks)
-                    if isinstance(message.content, list):
-                        for block in message.content:
-                            if hasattr(block, "text"):
-                                response_text += block.text
-                                # Output to console for user
-                                console = Console()
-                                console.print(block.text, end="")
-                    elif isinstance(message.content, str):
-                        response_text = message.content
-                        # Output to console for user
-                        console = Console()
-                        console.print(message.content, end="")
+                # Extract and display text content
+                text = extract_message_text(message)
+                if text:
+                    console.print(text, end="")
     finally:
         # Always complete telemetry session, even on error
         if hooks.session_span:
@@ -232,16 +251,9 @@ async def run_agent_interactive(  # noqa: PLR0915
                         # Receive responses
                         response_text = ""
                         async for message in client.receive_response():
-                            if hasattr(message, "content"):
-                                # Extract text from content
-                                if isinstance(message.content, list):
-                                    for block in message.content:
-                                        if hasattr(block, "text"):
-                                            response_text += block.text
-                                elif isinstance(message.content, str):
-                                    response_text = message.content
-                                else:
-                                    response_text = str(message.content)
+                            text = extract_message_text(message)
+                            if text:
+                                response_text += text
 
                         # Display response with formatting
                         if response_text:
