@@ -43,9 +43,13 @@ def _should_show_message(record) -> bool:
     if record["level"].no < 20:  # INFO = 20
         return False
 
-    # Hide MCP config messages unless they're errors
+    # Hide MCP config INFO/WARNING messages (only show errors)
+    # MCP config is internal details users don't need to see
+    if "mcp" in record["name"]:
+        return record["level"].no >= 40  # ERROR level or above
+
     # Show everything else at INFO level or above
-    return not ("mcp" in record["name"] and record["level"].no < 40)  # ERROR = 40
+    return True
 
 
 def configure_logger(debug: bool = False) -> None:
