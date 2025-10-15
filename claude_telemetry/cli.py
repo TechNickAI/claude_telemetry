@@ -94,6 +94,60 @@ def show_config() -> None:
     console.print(table)
 
 
+def parse_claude_args(
+    args: list[str] | None,
+) -> tuple[str | None, dict[str, str | None]]:
+    """
+    Parse Claude CLI arguments into prompt and flags dict.
+
+    Strategy:
+    1. Last non-option argument is the prompt
+    2. Parse flags:
+       - `--flag=value` → {flag: value}
+       - `--flag` followed by non-option → {flag: value}
+       - `--flag` standalone → {flag: None}
+
+    Args:
+        args: Raw arguments from command line
+
+    Returns:
+        Tuple of (prompt, extra_args dict for Claude SDK)
+    """
+    if args is None or len(args) == 0:
+        return None, {}
+
+    # Find the last non-option argument (the prompt)
+    prompt = None
+    claude_args = list(args)
+
+    for i in range(len(claude_args) - 1, -1, -1):
+        if not claude_args[i].startswith("-"):
+            prompt = claude_args.pop(i)
+            break
+
+    # Parse flags into dict for SDK
+    extra_args = {}
+    i = 0
+    while i < len(claude_args):
+        arg = claude_args[i]
+
+        if "=" in arg:
+            # --flag=value format
+            key, value = arg.lstrip("-").split("=", 1)
+            extra_args[key] = value
+            i += 1
+        elif i + 1 < len(claude_args) and not claude_args[i + 1].startswith("-"):
+            # --flag value format (next arg is not a flag)
+            extra_args[arg.lstrip("-")] = claude_args[i + 1]
+            i += 2
+        else:
+            # --flag standalone (boolean flag)
+            extra_args[arg.lstrip("-")] = None
+            i += 1
+
+    return prompt, extra_args
+
+
 def show_startup_banner(extra_args: dict[str, str | None]) -> None:
     """Show a fancy startup banner."""
     # Create configuration table
@@ -135,50 +189,8 @@ def show_startup_banner(extra_args: dict[str, str | None]) -> None:
     console.print()
 
 
-def parse_extra_args(ctx: typer.Context) -> dict[str, str | None]:
-    """
-    Parse extra arguments from context into dict format for Claude SDK.
-
-    Converts Click's list of extra args (e.g., ['--model', 'opus', '--debug'])
-    into dict format (e.g., {'model': 'opus', 'debug': None}).
-    """
-    extra_args = {}
-    args = list(ctx.args)  # Get extra args from context
-    i = 0
-
-    while i < len(args):
-        arg = args[i]
-
-        if not arg.startswith("-"):
-            # Standalone value - shouldn't happen if prompt was removed correctly
-            i += 1
-            continue
-
-        # Handle --flag or -f
-        if "=" in arg:
-            # --flag=value or -f=value format
-            flag_part, value_part = arg.split("=", 1)
-            flag_name = flag_part.lstrip("-")
-            extra_args[flag_name] = value_part
-            i += 1
-        else:
-            # --flag value or --flag (boolean) format
-            flag_name = arg.lstrip("-")
-
-            # Check if next arg is a value (doesn't start with -)
-            if i + 1 < len(args) and not args[i + 1].startswith("-"):
-                extra_args[flag_name] = args[i + 1]
-                i += 2
-            else:
-                # Boolean flag
-                extra_args[flag_name] = None
-                i += 1
-
-    return extra_args
-
-
 @app.command(
-    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+    context_settings={"ignore_unknown_options": True},
     help="""
     [bold]🤖 Claude agent with OpenTelemetry instrumentation[/bold]
 
@@ -204,12 +216,9 @@ def parse_extra_args(ctx: typer.Context) -> dict[str, str | None]:
     """,
 )
 def main(
-    ctx: typer.Context,
-    prompt: Annotated[
-        str | None,
-        typer.Argument(
-            help="Task for Claude to perform. If not provided, starts interactive mode."
-        ),
+    args: Annotated[
+        list[str],
+        typer.Argument(help="Prompt and Claude CLI flags (all pass-through arguments)"),
     ] = None,
     logfire_token: Annotated[
         str | None,
@@ -270,8 +279,8 @@ def main(
         os.environ["CLAUDE_TELEMETRY_DEBUG"] = "1"
         configure_logger(debug=True)
 
-    # Parse extra args (Claude CLI flags)
-    extra_args = parse_extra_args(ctx)
+    # Parse arguments into prompt and Claude CLI flags
+    prompt, extra_args = parse_claude_args(args)
 
     if claudia_debug:
         console.print(f"[dim]Debug: extra_args = {extra_args}[/dim]")
