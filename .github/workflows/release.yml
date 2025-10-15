@@ -59,7 +59,7 @@ jobs:
           # Using trusted publishing (no API token needed if configured in PyPI)
           # If you haven't set up trusted publishing, add your PyPI API token
           # to repository secrets as PYPI_API_TOKEN and uncomment the line below:
-          # password: ${{ secrets.PYPI_API_TOKEN }}
+          password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true
 
   github-release:
