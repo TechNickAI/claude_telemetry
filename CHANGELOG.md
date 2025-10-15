@@ -9,6 +9,33 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.2.0] - 2025-10-15
+
+### Changed
+
+- **Major CLI Refactor**: Simplified argument parsing using Typer's variadic arguments
+  - Reduced parsing logic from ~200+ lines to ~50 lines
+  - Removed complex custom prompt extraction that was prone to bugs
+  - Simple heuristic: last non-option argument is the prompt
+  - Proper handling of `--flag=value`, `--flag value`, and `--flag` (boolean) formats
+- Improved test suite with proper mocking following pytest standards
+  - Added 20 new CLI parsing tests
+  - Mock external dependencies instead of calling Claude CLI during tests
+  - Faster test execution (0.30s for full suite)
+
+### Fixed
+
+- Fixed argument parsing bugs where flags were incorrectly treated as prompts
+- Fixed test for KeyboardInterrupt handling to properly expect `typer.Exit`
+
+## [0.1.2] - 2025-01-XX
+
+### Added
+
 - Initial public release! 🎉
 - OpenTelemetry instrumentation for Claude agents
 - Comprehensive telemetry capture (prompts, tool calls, tokens, costs)
