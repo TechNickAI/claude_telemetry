@@ -1,0 +1,4 @@
+# Logfire extra dependencies
+# Install with: pip install -r requirements.txt -r requirements-logfire.txt
+-r requirements.in
+logfire

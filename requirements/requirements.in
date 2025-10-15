@@ -1,0 +1,10 @@
+# Core dependencies (must match pyproject.toml)
+claude-agent-sdk
+loguru
+opentelemetry-api
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-sdk
+pydantic
+python-dotenv
+rich
+typer

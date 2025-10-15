@@ -12,8 +12,34 @@ collector.
 
 ## Installation
 
+### Basic Installation (OTEL only)
+
 ```bash
+# Minimal installation - works with any OTEL backend
 pip install git+https://github.com/TechNickAI/claude_telemetry.git
+```
+
+### With Logfire Support
+
+```bash
+# Includes Logfire for enhanced LLM telemetry
+pip install "git+https://github.com/TechNickAI/claude_telemetry.git#egg=claude_telemetry[logfire]"
+```
+
+### For Development
+
+```bash
+# Clone the repo
+git clone https://github.com/TechNickAI/claude_telemetry.git
+cd claude_telemetry
+
+# Install with uv (without Logfire)
+uv pip install -r requirements/requirements.txt
+uv pip install -e .
+
+# OR install with Logfire support
+uv pip install -r requirements/requirements-logfire.txt
+uv pip install -e .
 ```
 
 ## Usage
