@@ -4,15 +4,39 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-OpenTelemetry instrumentation for Claude agents.
+**See what your Claude agents are actually doing—especially when running headless.**
 
-Captures every prompt, tool call, token count, and cost as structured OTEL spans. Send
-traces to any observability backend: Logfire, Datadog, Honeycomb, Grafana, or your own
-collector.
+## The Problem
 
-## Installation
+You're using Claude Code to build powerful agents. It works beautifully in your
+terminal.
 
-### From PyPI (Recommended)
+But the moment you run it **headless** (CI/CD, cron jobs, production, remote servers),
+you're flying blind:
+
+- ❌ Can't see which tools the agent is calling
+- ❌ Don't know token usage or costs
+- ❌ No idea why it failed (or what it did before failing)
+- ❌ Can't debug without re-running locally
+
+**Claude Code gives you no observability in headless environments.**
+
+## The Solution
+
+`claude_telemetry` captures everything your agent does and sends it to your
+observability platform. One line of code, full visibility:
+
+- ✅ Every prompt, tool call, token count, and cost as structured traces
+- ✅ Works with any OTEL backend: Logfire, Datadog, Honeycomb, Grafana
+- ✅ See exactly what happened in production
+- ✅ Debug remote failures without local reproduction
+- ✅ Track costs and optimize expensive workflows
+
+**Your agents become observable—whether local or headless.**
+
+## Quick Start
+
+**1. Install:**
 
 ```bash
 # Basic installation - works with any OTEL backend
@@ -22,48 +46,91 @@ pip install claude_telemetry
 pip install "claude_telemetry[logfire]"
 ```
 
+**2. Add one line to your code:**
+
+```python
+from claude_telemetry import run_agent_with_telemetry
+
+# Instead of using Claude SDK directly, use this wrapper:
+await run_agent_with_telemetry(
+    prompt="Analyze my project and suggest improvements",
+    allowed_tools=["Read", "Write", "Bash"],
+)
+```
+
+**3. Configure your observability backend:**
+
+```bash
+# For Logfire (get token from logfire.pydantic.dev)
+export LOGFIRE_TOKEN="your-token"
+
+# Or for any OTEL backend
+export OTEL_EXPORTER_OTLP_ENDPOINT="https://your-otel-endpoint.com"
+export OTEL_EXPORTER_OTLP_HEADERS="authorization=Bearer your-token"
+```
+
+**That's it.** Your agent's telemetry is now flowing to your observability platform.
+
+## Installation Options
+
+### From PyPI (Recommended)
+
+```bash
+pip install claude_telemetry              # Basic OTEL support
+pip install "claude_telemetry[logfire]"   # Enhanced Logfire features
+```
+
 ### From Source
 
 ```bash
-# Basic installation
 pip install git+https://github.com/TechNickAI/claude_telemetry.git
-
-# With Logfire support
-pip install "git+https://github.com/TechNickAI/claude_telemetry.git#egg=claude_telemetry[logfire]"
 ```
 
 ### For Development
 
 ```bash
-# Clone the repo
 git clone https://github.com/TechNickAI/claude_telemetry.git
 cd claude_telemetry
-
-# Install with uv (without Logfire)
-uv pip install -r requirements/requirements.txt
-uv pip install -e .
-
-# OR install with Logfire support
-uv pip install -r requirements/requirements-logfire.txt
-uv pip install -e .
+pip install -e ".[dev]"
 ```
 
-## Usage
+## Usage Examples
 
-**With Logfire (automatic configuration):**
+### Headless/Production Use Case
+
+The main use case: running agents in environments where you can't see console output.
+
+```python
+# In your CI/CD, cron job, or production script:
+from claude_telemetry import run_agent_with_telemetry
+
+await run_agent_with_telemetry(
+    prompt="Analyze the latest logs and create a report",
+    system_prompt="You are a DevOps assistant.",
+    allowed_tools=["Read", "Write", "Bash"],
+)
+```
+
+Now go to your observability dashboard and see exactly what happened:
+
+- Which tools were called
+- What errors occurred
+- How many tokens were used
+- Total cost of the operation
+
+### Local Development with Visibility
+
+Even during local development, seeing traces helps you understand agent behavior:
 
 ```python
 from claude_telemetry import run_agent_with_telemetry
 
+# Your normal Claude Code workflow, now with observability
 await run_agent_with_telemetry(
-    prompt="Analyze my recent emails and summarize them",
-    system_prompt="You are a helpful email assistant.",
+    prompt="Refactor the authentication module",
     allowed_tools=["Read", "Write"],
 )
 ```
-
-Set `LOGFIRE_TOKEN` as an environment variable. The package auto-configures Logfire with
-proper LLM span formatting.
 
 **With any OTEL backend:**
 
