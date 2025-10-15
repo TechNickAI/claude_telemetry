@@ -3,12 +3,13 @@
 import asyncio
 import os
 
-from loguru import logger
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+
+from claude_telemetry.helpers.logger import logger
 
 
 def configure_telemetry(
@@ -34,11 +35,16 @@ def configure_telemetry(
     # Use provided tracer if given
     if tracer_provider:
         trace.set_tracer_provider(tracer_provider)
+        logger.info("✅ Using provided tracer provider")
         return tracer_provider
 
-    # Check if already configured
+    # Check if a real TracerProvider has already been configured
+    # (not just the default ProxyTracerProvider)
     existing = trace.get_tracer_provider()
-    if existing and not isinstance(existing, trace.NoOpTracerProvider):
+    if isinstance(existing, TracerProvider) and not isinstance(
+        existing, trace.NoOpTracerProvider
+    ):
+        logger.debug("Using existing tracer provider")
         return existing
 
     # Check for Logfire configuration
@@ -46,11 +52,10 @@ def configure_telemetry(
         try:
             from claude_telemetry.logfire_adapter import configure_logfire  # noqa: PLC0415
 
-            logger.info("🔥 Telemetry: Configuring Logfire backend")
-            logger.info(f"   Service: {service_name}")
             provider = configure_logfire(service_name)
-            logger.info("   Status: ✅ Ready")
-            logger.info("   Dashboard: https://logfire.pydantic.dev/")
+            logger.info(
+                "🔥 Logfire telemetry configured → https://logfire.pydantic.dev/"
+            )
             return provider  # noqa: TRY300
         except ImportError as e:
             logger.error("❌ LOGFIRE_TOKEN set but logfire not installed!")
@@ -69,11 +74,8 @@ def configure_telemetry(
     otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     if otel_endpoint:
         try:
-            logger.info("📊 Telemetry: Configuring OpenTelemetry backend")
-            logger.info(f"   Service: {service_name}")
-            logger.info(f"   Endpoint: {otel_endpoint}")
             provider = _configure_otel(otel_endpoint, service_name)
-            logger.info("   Status: ✅ Ready")
+            logger.info(f"📊 OpenTelemetry configured → {otel_endpoint}")
             return provider  # noqa: TRY300
         except Exception as e:
             logger.error(f"❌ Failed to configure OTEL: {e}")
@@ -82,10 +84,7 @@ def configure_telemetry(
 
     # No configuration found - use console exporter for debugging
     if os.getenv("CLAUDE_TELEMETRY_DEBUG"):
-        logger.info("🔍 Telemetry: Using console output (debug mode)")
-        logger.info(f"   Service: {service_name}")
-        logger.info("   Status: ✅ Ready")
-        logger.info("   Output: Console (stdout)")
+        logger.info("🔍 Debug mode: telemetry output to console")
         return _configure_console_exporter(service_name)
 
     # No telemetry backend configured - FAIL LOUDLY

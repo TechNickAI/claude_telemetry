@@ -3,9 +3,10 @@
 import json
 from typing import Any
 
-from loguru import logger
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
+
+from claude_telemetry.helpers.logger import logger
 
 
 def configure_logfire(service_name: str = "claude-agents") -> TracerProvider:

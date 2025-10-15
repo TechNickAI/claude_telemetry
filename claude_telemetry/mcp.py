@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
+from claude_telemetry.helpers.logger import logger
 
 
 def load_mcp_config(config_path: Path | None = None) -> dict[str, Any] | None:

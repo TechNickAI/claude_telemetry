@@ -5,9 +5,9 @@ import time
 from contextvars import ContextVar
 from typing import Any
 
-from loguru import logger
 from opentelemetry import trace
 
+from claude_telemetry.helpers.logger import logger
 from claude_telemetry.logfire_adapter import (
     create_tool_span_for_logfire,
     format_for_logfire_llm,
@@ -87,9 +87,8 @@ class TelemetryHooks:
         # Store message for Logfire formatting
         self.messages.append({"role": "user", "content": prompt})
 
-        # Log to console with nice formatting
-        logger.info(f"🤖 {prompt}")
-        logger.info("  👤 User prompt submitted")
+        # Log prompt submission (keep this simple)
+        logger.debug(f"User prompt: {prompt}")
 
         return {}
 
@@ -130,8 +129,8 @@ class TelemetryHooks:
         if metrics:
             metrics["tools_used"] += 1
 
-        # Log to console
-        logger.info(f"  🔧 Calling tool: {tool_name}")
+        # Log tool call
+        logger.debug(f"Calling tool: {tool_name}")
 
         # Add event to parent span
         parent_span.add_event(f"Tool call started: {tool_name}", {"tool": tool_name})
@@ -186,8 +185,8 @@ class TelemetryHooks:
                 del tool_spans[tool_id]
                 current_tool_spans.set(tool_spans)
 
-        # Log to console
-        logger.info(f"  ✅ Tool completed: {tool_name}")
+        # Log tool completion
+        logger.debug(f"Tool completed: {tool_name}")
 
         # Add event to parent span
         parent_span = current_session_span.get()
@@ -274,14 +273,11 @@ class TelemetryHooks:
             # Add completion event
             span.add_event("🎉 Agent completed")
 
-            # Log final metrics to console
+            # Log final metrics in a single clean line
             duration = time.time() - metrics.get("start_time", time.time())
-            logger.info("  🎉 Agent completed")
             logger.info(
-                f"\nSession completed - "
-                f"Tokens: {input_tokens} in, {output_tokens} out, "
-                f"Tools called: {metrics.get('tools_used', 0)}, "
-                f"Duration: {duration:.1f}s"
+                f"✅ Session completed | {input_tokens} in, {output_tokens} out | "
+                f"{metrics.get('tools_used', 0)} tools | {duration:.1f}s"
             )
 
         # End the span

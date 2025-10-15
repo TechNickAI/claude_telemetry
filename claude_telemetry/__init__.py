@@ -2,6 +2,9 @@
 
 from importlib.metadata import version
 
+# Configure logger early (import triggers configuration)
+from .helpers import logger  # noqa: F401
+
 __version__ = version("claude_telemetry")
 
 # Async API (primary)

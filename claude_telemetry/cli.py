@@ -5,12 +5,12 @@ from pathlib import Path
 
 import typer
 from dotenv import load_dotenv
-from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
 from claude_telemetry import __version__
+from claude_telemetry.helpers.logger import configure_logger
 from claude_telemetry.sync import (
     run_agent_interactive_sync,
     run_agent_with_telemetry_sync,
@@ -130,7 +130,7 @@ def main(
 
     if debug:
         os.environ["CLAUDE_TELEMETRY_DEBUG"] = "1"
-        logger.level = "DEBUG"
+        configure_logger(debug=True)
 
     # Determine mode
     use_interactive = interactive or prompt is None
