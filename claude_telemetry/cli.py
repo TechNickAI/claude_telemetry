@@ -65,6 +65,11 @@ def main(
         "--debug",
         help="Enable debug output to console",
     ),
+    claude_debug: bool = typer.Option(
+        False,
+        "--claude-debug",
+        help="Enable Claude CLI debug mode (shows MCP errors and tool issues)",
+    ),
     logfire_token: str | None = typer.Option(
         None,
         "--logfire-token",
@@ -140,6 +145,7 @@ def main(
                 system_prompt=system,
                 model=model,
                 allowed_tools=tools,
+                debug=claude_debug,
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]Interrupted by user[/yellow]")
@@ -163,6 +169,7 @@ def main(
                 system_prompt=system,
                 model=model,
                 allowed_tools=tools,
+                debug=claude_debug,
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]Interrupted by user[/yellow]")

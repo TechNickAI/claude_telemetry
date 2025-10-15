@@ -13,6 +13,7 @@ def run_agent_with_telemetry_sync(
     model: str | None = None,
     allowed_tools: list[str] | None = None,
     tracer_provider: TracerProvider | None = None,
+    debug: bool = False,
 ) -> None:
     """
     Synchronous wrapper for run_agent_with_telemetry.
@@ -26,6 +27,7 @@ def run_agent_with_telemetry_sync(
         model: Claude model to use
         allowed_tools: List of SDK tool names to allow
         tracer_provider: Optional custom tracer provider
+        debug: Enable Claude CLI debug mode (shows MCP errors and more)
 
     Returns:
         None - prints Claude's responses and sends telemetry
@@ -47,6 +49,7 @@ def run_agent_with_telemetry_sync(
             model=model,
             allowed_tools=allowed_tools,
             tracer_provider=tracer_provider,
+            debug=debug,
         )
     )
 
@@ -56,6 +59,7 @@ def run_agent_interactive_sync(
     model: str | None = None,
     allowed_tools: list[str] | None = None,
     tracer_provider: TracerProvider | None = None,
+    debug: bool = False,
 ) -> None:
     """
     Synchronous wrapper for interactive mode.
@@ -65,6 +69,7 @@ def run_agent_interactive_sync(
         model: Claude model to use
         allowed_tools: List of SDK tool names to allow
         tracer_provider: Optional custom tracer provider
+        debug: Enable Claude CLI debug mode (shows MCP errors and more)
 
     Returns:
         None - runs interactive session
@@ -83,5 +88,6 @@ def run_agent_interactive_sync(
             model=model,
             allowed_tools=allowed_tools,
             tracer_provider=tracer_provider,
+            debug=debug,
         )
     )

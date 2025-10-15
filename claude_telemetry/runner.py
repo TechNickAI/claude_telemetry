@@ -17,6 +17,7 @@ async def run_agent_with_telemetry(
     model: str | None = None,
     allowed_tools: list[str] | None = None,
     tracer_provider: TracerProvider | None = None,
+    debug: bool = False,
 ) -> None:
     """
     Run a Claude agent with OpenTelemetry instrumentation.
@@ -29,6 +30,7 @@ async def run_agent_with_telemetry(
         model: Claude model to use
         allowed_tools: List of SDK tool names to allow (e.g., ["Read", "Write", "Bash"])
         tracer_provider: Optional custom tracer provider
+        debug: Enable Claude CLI debug mode (shows MCP errors and more)
 
     Returns:
         None - prints Claude's responses and sends telemetry
@@ -55,6 +57,17 @@ async def run_agent_with_telemetry(
         "PreCompact": [HookMatcher(matcher=None, hooks=[hooks.on_pre_compact])],
     }
 
+    # Build extra CLI args
+    extra_args = {}
+    if debug:
+        extra_args["debug"] = None  # Flag with no value
+
+    # Callback for stderr output from Claude CLI
+    def log_claude_stderr(line: str) -> None:
+        """Log Claude CLI stderr output for debugging."""
+        if line.strip():
+            logger.info(f"[Claude CLI] {line}")
+
     # Create agent options with hooks
     # Note: Don't pass mcp_servers - let Claude CLI use its own config
     # IMPORTANT: Must explicitly set setting_sources to load user/project/local settings
@@ -64,6 +77,8 @@ async def run_agent_with_telemetry(
         allowed_tools=allowed_tools,
         hooks=hook_config,
         setting_sources=["user", "project", "local"],
+        extra_args=extra_args,
+        stderr=log_claude_stderr if debug else None,
     )
 
     # Add model only if specified
@@ -105,6 +120,7 @@ async def run_agent_interactive(  # noqa: PLR0915
     model: str | None = None,
     allowed_tools: list[str] | None = None,
     tracer_provider: TracerProvider | None = None,
+    debug: bool = False,
 ) -> None:
     """
     Run Claude agent in interactive mode.
@@ -116,6 +132,7 @@ async def run_agent_interactive(  # noqa: PLR0915
         model: Claude model to use
         allowed_tools: List of SDK tool names to allow
         tracer_provider: Optional custom tracer provider
+        debug: Enable Claude CLI debug mode (shows MCP errors and more)
 
     Returns:
         None - runs interactive session
@@ -151,6 +168,17 @@ async def run_agent_interactive(  # noqa: PLR0915
     # Initialize hooks once for the session
     hooks = TelemetryHooks()
 
+    # Build extra CLI args
+    extra_args = {}
+    if debug:
+        extra_args["debug"] = None  # Flag with no value
+
+    # Callback for stderr output from Claude CLI
+    def log_claude_stderr(line: str) -> None:
+        """Log Claude CLI stderr output for debugging."""
+        if line.strip():
+            logger.info(f"[Claude CLI] {line}")
+
     # Create options with hooks
     # Note: Don't pass mcp_servers - let Claude CLI use its own config
     # IMPORTANT: Must explicitly set setting_sources to load user/project/local settings
@@ -159,6 +187,8 @@ async def run_agent_interactive(  # noqa: PLR0915
         system_prompt=system_prompt,
         allowed_tools=allowed_tools,
         setting_sources=["user", "project", "local"],
+        extra_args=extra_args,
+        stderr=log_claude_stderr if debug else None,
         hooks={
             "UserPromptSubmit": [
                 HookMatcher(matcher=None, hooks=[hooks.on_user_prompt_submit])
