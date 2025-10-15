@@ -9,11 +9,11 @@ description = "OpenTelemetry instrumentation for Claude agents"
 authors = [{ name = "Nick Garvey", email = "nick@technick.ai" }]
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "AGPL-3.0" }
+license = { text = "MIT" }
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -136,5 +136,9 @@ lint.isort.lines-between-types = 0
 docstring-code-format = true
 
 [tool.ruff.lint.per-file-ignores]
-"test_*.py" = ["PLR0915", "ARG001", "ARG005", "SLF001", "F841"]
-"**/conftest.py" = ["ARG001"]
+"test_*.py" = ["PLR0915", "ARG001", "ARG005", "SLF001", "F841", "TRY002"]
+"**/conftest.py" = ["ARG001", "SLF001"]
+"examples/*.py" = [
+    "T201",
+    "INP001",
+] # Allow prints and no __init__ requirement in examples

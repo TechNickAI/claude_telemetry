@@ -11,12 +11,43 @@ from claude_telemetry.hooks import TelemetryHooks
 from claude_telemetry.telemetry import configure_telemetry
 
 
+def extract_message_text(message) -> str:
+    """
+    Extract text content from Claude SDK message.
+
+    Handles different message content types:
+    - List of text blocks
+    - String content
+    - Other content types (converted to string)
+
+    Args:
+        message: Claude SDK message object
+
+    Returns:
+        Extracted text content or empty string
+    """
+    if not hasattr(message, "content"):
+        return ""
+
+    content = message.content
+
+    if isinstance(content, list):
+        # Extract text from list of blocks
+        return "".join(block.text for block in content if hasattr(block, "text"))
+    elif isinstance(content, str):
+        return content
+    else:
+        # Fallback for other types
+        return str(content)
+
+
 async def run_agent_with_telemetry(
     prompt: str,
     system_prompt: str | None = None,
     model: str | None = None,
     allowed_tools: list[str] | None = None,
     tracer_provider: TracerProvider | None = None,
+    debug: bool = False,
 ) -> None:
     """
     Run a Claude agent with OpenTelemetry instrumentation.
@@ -29,6 +60,7 @@ async def run_agent_with_telemetry(
         model: Claude model to use
         allowed_tools: List of SDK tool names to allow (e.g., ["Read", "Write", "Bash"])
         tracer_provider: Optional custom tracer provider
+        debug: Enable Claude CLI debug mode (shows MCP errors and more)
 
     Returns:
         None - prints Claude's responses and sends telemetry
@@ -55,6 +87,17 @@ async def run_agent_with_telemetry(
         "PreCompact": [HookMatcher(matcher=None, hooks=[hooks.on_pre_compact])],
     }
 
+    # Build extra CLI args
+    extra_args = {}
+    if debug:
+        extra_args["debug"] = None  # Flag with no value
+
+    # Callback for stderr output from Claude CLI
+    def log_claude_stderr(line: str) -> None:
+        """Log Claude CLI stderr output for debugging."""
+        if line.strip():
+            logger.info(f"[Claude CLI] {line}")
+
     # Create agent options with hooks
     # Note: Don't pass mcp_servers - let Claude CLI use its own config
     # IMPORTANT: Must explicitly set setting_sources to load user/project/local settings
@@ -64,6 +107,8 @@ async def run_agent_with_telemetry(
         allowed_tools=allowed_tools,
         hooks=hook_config,
         setting_sources=["user", "project", "local"],
+        extra_args=extra_args,
+        stderr=log_claude_stderr if debug else None,
     )
 
     # Add model only if specified
@@ -71,29 +116,18 @@ async def run_agent_with_telemetry(
         options.model = model
 
     # Use async context manager for proper resource handling
+    console = Console()
     try:
         async with ClaudeSDKClient(options=options) as client:
             # Send the query
             await client.query(prompt=prompt)
 
             # Receive and process responses
-            response_text = ""
             async for message in client.receive_response():
-                # Handle different message types
-                if hasattr(message, "content"):
-                    # Extract text from content (could be a list of TextBlocks)
-                    if isinstance(message.content, list):
-                        for block in message.content:
-                            if hasattr(block, "text"):
-                                response_text += block.text
-                                # Output to console for user
-                                console = Console()
-                                console.print(block.text, end="")
-                    elif isinstance(message.content, str):
-                        response_text = message.content
-                        # Output to console for user
-                        console = Console()
-                        console.print(message.content, end="")
+                # Extract and display text content
+                text = extract_message_text(message)
+                if text:
+                    console.print(text, end="")
     finally:
         # Always complete telemetry session, even on error
         if hooks.session_span:
@@ -105,6 +139,7 @@ async def run_agent_interactive(  # noqa: PLR0915
     model: str | None = None,
     allowed_tools: list[str] | None = None,
     tracer_provider: TracerProvider | None = None,
+    debug: bool = False,
 ) -> None:
     """
     Run Claude agent in interactive mode.
@@ -116,6 +151,7 @@ async def run_agent_interactive(  # noqa: PLR0915
         model: Claude model to use
         allowed_tools: List of SDK tool names to allow
         tracer_provider: Optional custom tracer provider
+        debug: Enable Claude CLI debug mode (shows MCP errors and more)
 
     Returns:
         None - runs interactive session
@@ -151,6 +187,17 @@ async def run_agent_interactive(  # noqa: PLR0915
     # Initialize hooks once for the session
     hooks = TelemetryHooks()
 
+    # Build extra CLI args
+    extra_args = {}
+    if debug:
+        extra_args["debug"] = None  # Flag with no value
+
+    # Callback for stderr output from Claude CLI
+    def log_claude_stderr(line: str) -> None:
+        """Log Claude CLI stderr output for debugging."""
+        if line.strip():
+            logger.info(f"[Claude CLI] {line}")
+
     # Create options with hooks
     # Note: Don't pass mcp_servers - let Claude CLI use its own config
     # IMPORTANT: Must explicitly set setting_sources to load user/project/local settings
@@ -159,6 +206,8 @@ async def run_agent_interactive(  # noqa: PLR0915
         system_prompt=system_prompt,
         allowed_tools=allowed_tools,
         setting_sources=["user", "project", "local"],
+        extra_args=extra_args,
+        stderr=log_claude_stderr if debug else None,
         hooks={
             "UserPromptSubmit": [
                 HookMatcher(matcher=None, hooks=[hooks.on_user_prompt_submit])
@@ -202,16 +251,9 @@ async def run_agent_interactive(  # noqa: PLR0915
                         # Receive responses
                         response_text = ""
                         async for message in client.receive_response():
-                            if hasattr(message, "content"):
-                                # Extract text from content
-                                if isinstance(message.content, list):
-                                    for block in message.content:
-                                        if hasattr(block, "text"):
-                                            response_text += block.text
-                                elif isinstance(message.content, str):
-                                    response_text = message.content
-                                else:
-                                    response_text = str(message.content)
+                            text = extract_message_text(message)
+                            if text:
+                                response_text += text
 
                         # Display response with formatting
                         if response_text:

@@ -1,13 +1,13 @@
 """Command-line interface for Claude Telemetry."""
 
-import os
 from pathlib import Path
+import os
 
-import typer
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+import typer
 
 from claude_telemetry import __version__
 from claude_telemetry.helpers.logger import configure_logger
@@ -27,6 +27,19 @@ console = Console()
 
 # Load environment variables from .env file
 load_dotenv()
+
+
+def handle_agent_error(e: Exception) -> None:
+    """Handle agent execution errors consistently."""
+    if isinstance(e, KeyboardInterrupt):
+        console.print("\n[yellow]Interrupted by user[/yellow]")
+    elif isinstance(e, RuntimeError):
+        # Telemetry configuration errors - show them prominently
+        console.print(f"\n[bold red]{e}[/bold red]\n")
+        raise typer.Exit(1) from e
+    else:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1) from e
 
 
 @app.callback(invoke_without_command=True)
@@ -64,6 +77,11 @@ def main(
         False,
         "--debug",
         help="Enable debug output to console",
+    ),
+    claude_debug: bool = typer.Option(
+        False,
+        "--claude-debug",
+        help="Enable Claude CLI debug mode (shows MCP errors and tool issues)",
     ),
     logfire_token: str | None = typer.Option(
         None,
@@ -132,7 +150,7 @@ def main(
 
     if use_interactive:
         # Show fancy startup banner
-        _show_startup_banner(model, tools)
+        show_startup_banner(model, tools)
 
         # Run interactive mode
         try:
@@ -140,16 +158,10 @@ def main(
                 system_prompt=system,
                 model=model,
                 allowed_tools=tools,
+                debug=claude_debug,
             )
-        except KeyboardInterrupt:
-            console.print("\n[yellow]Interrupted by user[/yellow]")
-        except RuntimeError as e:
-            # Telemetry configuration errors - show them prominently
-            console.print(f"\n[bold red]{e}[/bold red]\n")
-            raise typer.Exit(1) from e
         except Exception as e:
-            console.print(f"[red]Error: {e}[/red]")
-            raise typer.Exit(1) from e
+            handle_agent_error(e)
 
     else:
         # Single prompt mode
@@ -163,19 +175,13 @@ def main(
                 system_prompt=system,
                 model=model,
                 allowed_tools=tools,
+                debug=claude_debug,
             )
-        except KeyboardInterrupt:
-            console.print("\n[yellow]Interrupted by user[/yellow]")
-        except RuntimeError as e:
-            # Telemetry configuration errors - show them prominently
-            console.print(f"\n[bold red]{e}[/bold red]\n")
-            raise typer.Exit(1) from e
         except Exception as e:
-            console.print(f"[red]Error: {e}[/red]")
-            raise typer.Exit(1) from e
+            handle_agent_error(e)
 
 
-def _show_startup_banner(model: str | None, tools: list[str] | None) -> None:
+def show_startup_banner(model: str | None, tools: list[str] | None) -> None:
     """Show a fancy startup banner."""
     # Create configuration table
     table = Table(show_header=False, box=None, padding=(0, 1))

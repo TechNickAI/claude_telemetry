@@ -48,6 +48,10 @@ def _should_show_message(record) -> bool:
     if "mcp" in record["name"]:
         return record["level"].no >= 40  # ERROR level or above
 
+    # ALWAYS show hook messages - they're the core debugging info!
+    if "hooks" in record["name"]:
+        return True
+
     # Show everything else at INFO level or above
     return True
 

@@ -1,0 +1,87 @@
+---
+description: When writing Celery tasks
+globs: **/tasks.py
+alwaysApply: false
+---
+
+# Celery Task Structure
+
+## Task Definition
+
+```python
+@shared_task(max_retries=3, default_retry_delay=60)
+def process_order(order_id: int):
+    """Process order and send confirmation email."""
+    logger.info(f"Processing order {order_id}")
+    order = Order.objects.get(id=order_id)
+    order.process_payment()
+    send_confirmation_email(order)
+    logger.info(f"Order {order_id} complete")
+    return {"status": "success", "order_id": order_id}
+
+@shared_task(rate_limit="10/m")
+def sync_inventory(product_id: int):
+    """Sync product inventory from external API."""
+    product = Product.objects.get(id=product_id)
+    inventory_data = fetch_inventory_from_api(product.sku)
+    product.stock_count = inventory_data["quantity"]
+    product.save()
+    return {"product_id": product_id, "stock": product.stock_count}
+
+@shared_task
+def generate_daily_report(date: str):
+    """Generate and email daily sales report."""
+    report_date = datetime.fromisoformat(date)
+    report = compile_sales_report(report_date)
+    send_report_email(report)
+    return {"date": date, "orders": report.order_count}
+```
+
+## Best Practices
+
+We:
+
+- Use type hints for parameters
+- Include helpful docstrings
+- Log start and completion
+- Set appropriate retry settings
+- Consider rate limits for external APIs
+- Pass IDs, not objects (objects can't be serialized)
+- Return serializable data (dicts, not model instances)
+
+## Error Handling
+
+Default: let exceptions bubble up. Celery will retry based on max_retries setting.
+
+For specific retry behavior:
+
+```python
+@shared_task(max_retries=3, default_retry_delay=60)
+def sync_external_data(data_id: int):
+    """Sync data from external API with retry on transient failures."""
+    data = Data.objects.get(id=data_id)  # Let it crash if data doesn't exist
+    try:
+        result = external_api_call(data)
+        return result
+    except ExternalAPIError as exc:
+        # Retry on transient API errors
+        raise self.retry(exc=exc)
+```
+
+Honeybadger/Sentry will alert us on failures. Let tasks crash on real problems.
+
+## Task Organization
+
+We organize tasks thoughtfully:
+
+- Group related tasks in the same file
+- Use clear, action-oriented names: `update_`, `process_`, `sync_`
+- Keep tasks focused - one clear responsibility
+- Extract complex logic into helper functions (easier to test too!)
+
+## Testing
+
+- Mock external dependencies
+- Test task logic, not Celery internals
+- Test retry behavior for expected failures
+- Verify logging outputs
