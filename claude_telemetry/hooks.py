@@ -79,6 +79,7 @@ class TelemetryHooks:
     ) -> dict[str, Any]:
         """Hook called before tool execution."""
         tool_name = input_data["tool_name"]
+        tool_input = input_data.get("tool_input", {})
 
         if not self.session_span:
             msg = "No active session span"
@@ -90,6 +91,16 @@ class TelemetryHooks:
                 f"🔧 {tool_name}",
                 attributes={"tool.name": tool_name},
             )
+
+        # Log tool input as event (with key parameters as attributes)
+        if tool_input:
+            # Add simplified input params as span attributes (strings only)
+            for key, val in tool_input.items():
+                if isinstance(val, str) and len(val) < 100:
+                    tool_span.set_attribute(f"tool.input.{key}", val)
+
+            # Add full input as event
+            tool_span.add_event("Tool input", {"input": str(tool_input)[:500]})
 
         # Store span
         tool_id = f"{tool_name}_{time.time()}"
@@ -112,6 +123,7 @@ class TelemetryHooks:
     ) -> dict[str, Any]:
         """Hook called after tool execution."""
         tool_name = input_data["tool_name"]
+        tool_response = input_data.get("tool_response")
 
         # Find and end tool span - use most recent for this tool name
         span = None
@@ -123,7 +135,13 @@ class TelemetryHooks:
                 break
 
         if span:
-            span.add_event("Tool completed")
+            # Add response as event (truncate if too long)
+            if tool_response is not None:
+                response_str = str(tool_response)
+                if len(response_str) > 500:
+                    response_str = response_str[:500] + "..."
+                span.add_event("Tool response", {"response": response_str})
+
             span.end()
             if tool_id:
                 del self.tool_spans[tool_id]
@@ -138,11 +156,7 @@ class TelemetryHooks:
         message: Any,
         ctx: Any,
     ) -> dict[str, Any]:
-        """
-        Hook called when assistant message is complete.
-
-        Updates metrics with token counts.
-        """
+        """Hook called when assistant message is complete - updates token counts."""
         # Extract token usage
         if hasattr(message, "usage"):
             input_tokens = getattr(message.usage, "input_tokens", 0)
@@ -152,7 +166,7 @@ class TelemetryHooks:
             self.metrics["output_tokens"] += output_tokens
             self.metrics["turns"] += 1
 
-            # Update span
+            # Update span with cumulative token usage
             if self.session_span:
                 self.session_span.set_attribute(
                     "gen_ai.usage.input_tokens", self.metrics["input_tokens"]
@@ -162,9 +176,52 @@ class TelemetryHooks:
                 )
                 self.session_span.set_attribute("turns", self.metrics["turns"])
 
+                # Add event for this turn with incremental tokens
+                self.session_span.add_event(
+                    "Turn completed",
+                    {
+                        "turn": self.metrics["turns"],
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                    },
+                )
+
         # Store message
         if hasattr(message, "content"):
             self.messages.append({"role": "assistant", "content": message.content})
+
+        return {}
+
+    async def on_pre_compact(
+        self,
+        input_data: dict[str, Any],
+        tool_use_id: str | None,
+        ctx: Any,
+    ) -> dict[str, Any]:
+        """Hook called before context window compaction."""
+        trigger = input_data.get("trigger", "unknown")
+        custom_instructions = input_data.get("custom_instructions")
+
+        if self.session_span:
+            self.session_span.add_event(
+                "Context compaction triggered",
+                {
+                    "trigger": trigger,
+                    "has_custom_instructions": custom_instructions is not None,
+                },
+            )
+
+        return {}
+
+    async def on_stop(
+        self,
+        input_data: dict[str, Any],
+        tool_use_id: str | None,
+        ctx: Any,
+    ) -> dict[str, Any]:
+        """Hook called when agent stops."""
+        if self.session_span:
+            self.session_span.add_event("Agent stopped")
 
         return {}
 

@@ -44,29 +44,15 @@ async def run_agent_with_telemetry(
     # Create hook configuration
     hook_config = {
         "UserPromptSubmit": [
-            HookMatcher(
-                matcher=None,
-                hooks=[hooks.on_user_prompt_submit],
-            )
+            HookMatcher(matcher=None, hooks=[hooks.on_user_prompt_submit])
         ],
-        "PreToolUse": [
-            HookMatcher(
-                matcher=None,
-                hooks=[hooks.on_pre_tool_use],
-            )
-        ],
-        "PostToolUse": [
-            HookMatcher(
-                matcher=None,
-                hooks=[hooks.on_post_tool_use],
-            )
-        ],
+        "PreToolUse": [HookMatcher(matcher=None, hooks=[hooks.on_pre_tool_use])],
+        "PostToolUse": [HookMatcher(matcher=None, hooks=[hooks.on_post_tool_use])],
         "MessageComplete": [
-            HookMatcher(
-                matcher=None,
-                hooks=[hooks.on_message_complete],
-            )
+            HookMatcher(matcher=None, hooks=[hooks.on_message_complete])
         ],
+        "PreCompact": [HookMatcher(matcher=None, hooks=[hooks.on_pre_compact])],
+        "Stop": [HookMatcher(matcher=None, hooks=[hooks.on_stop])],
     }
 
     # Load MCP configuration if requested
@@ -183,6 +169,8 @@ async def run_agent_interactive(  # noqa: PLR0915
             "MessageComplete": [
                 HookMatcher(matcher=None, hooks=[hooks.on_message_complete])
             ],
+            "PreCompact": [HookMatcher(matcher=None, hooks=[hooks.on_pre_compact])],
+            "Stop": [HookMatcher(matcher=None, hooks=[hooks.on_stop])],
         },
     )
 
