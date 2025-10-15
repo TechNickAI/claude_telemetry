@@ -27,13 +27,14 @@ def handle_agent_error(e: Exception) -> None:
     """Handle agent execution errors consistently."""
     if isinstance(e, KeyboardInterrupt):
         console.print("\n[yellow]Interrupted by user[/yellow]")
-    elif isinstance(e, RuntimeError):
+        raise typer.Exit(0) from e
+    if isinstance(e, RuntimeError):
         # Telemetry configuration errors - show them prominently
         console.print(f"\n[bold red]{e}[/bold red]\n")
-        raise typer.Exit(1)
-    else:
-        console.print(f"[red]Error: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
+    # For other exceptions, show error and re-raise with context
+    console.print(f"[red]Error: {e}[/red]")
+    raise typer.Exit(1) from e
 
 
 def parse_args() -> tuple[str | None, dict[str, str | None], bool]:  # noqa: PLR0915

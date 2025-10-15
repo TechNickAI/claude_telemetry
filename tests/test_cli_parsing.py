@@ -105,6 +105,11 @@ class TestParseArgs:
 
     def test_sets_environment_variables(self, monkeypatch):
         """Test that telemetry env vars are set."""
+        # Explicitly set to empty first to avoid side effects
+        monkeypatch.setenv("LOGFIRE_TOKEN", "")
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_HEADERS", "")
+
         monkeypatch.setattr(
             sys,
             "argv",
@@ -119,11 +124,6 @@ class TestParseArgs:
                 "test",
             ],
         )
-
-        # Clear env vars first
-        monkeypatch.delenv("LOGFIRE_TOKEN", raising=False)
-        monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
-        monkeypatch.delenv("OTEL_EXPORTER_OTLP_HEADERS", raising=False)
 
         prompt, extra_args, debug = parse_args()
 
