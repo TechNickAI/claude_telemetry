@@ -73,8 +73,10 @@ class TelemetryHooks:
         }
         session_metrics.set(metrics)
 
-        # Start parent span
-        span = self.tracer.start_span(f"🤖 {prompt[:50]}...")
+        # Start parent span with better title
+        # For Logfire, use a descriptive title, not the truncated prompt
+        span_title = "Claude Agent Session"
+        span = self.tracer.start_span(span_title)
         current_session_span.set(span)
 
         # Set initial attributes
@@ -87,8 +89,10 @@ class TelemetryHooks:
         # Store message for Logfire formatting
         self.messages.append({"role": "user", "content": prompt})
 
-        # Log prompt submission (keep this simple)
-        logger.debug(f"User prompt: {prompt}")
+        # Log prompt submission
+        logger.debug(
+            f"🎯 Hook fired: on_user_prompt_submit | prompt length: {len(prompt)}"
+        )
 
         return {}
 
@@ -241,9 +245,13 @@ class TelemetryHooks:
 
         Closes the parent span with final metrics.
         """
+        logger.debug("🎯 complete_session() called")
         span = current_session_span.get()
         if not span:
+            logger.warning("⚠️  No active span to complete!")
             return
+
+        logger.debug(f"🎯 Found span to complete: {span}")
 
         metrics = session_metrics.get()
         if metrics:
@@ -281,7 +289,9 @@ class TelemetryHooks:
             )
 
         # End the span
+        logger.debug(f"🎯 Ending span: {span}")
         span.end()
+        logger.debug("✅ Span ended successfully")
 
         # Clear context
         current_session_span.set(None)
@@ -291,3 +301,4 @@ class TelemetryHooks:
         # Reset state
         self.messages = []
         self.tools_used = []
+        logger.debug("🎯 Session cleanup complete")
