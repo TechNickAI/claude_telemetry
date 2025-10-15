@@ -1,5 +1,6 @@
 """Claude SDK hooks for telemetry capture."""
 
+import json
 import time
 from typing import Any
 
@@ -125,7 +126,7 @@ class TelemetryHooks:
 
         return {"tool_id": tool_id}
 
-    async def on_post_tool_use(
+    async def on_post_tool_use(  # noqa: PLR0915
         self,
         input_data: dict[str, Any],
         tool_use_id: str | None,
@@ -164,19 +165,16 @@ class TelemetryHooks:
         if span:
             # Add response as span attributes for visibility in Logfire
             if tool_response is not None:
-                response_str = str(tool_response)
-
-                # Set full response as attribute (no truncation - let Logfire handle it)
-                span.set_attribute("tool.response", response_str)
-
-                # Console logging - ALWAYS show response
-                logger.info(f"✅ Tool response: {tool_name}")
-                logger.info(f"   Response: {response_str[:500]}")
-                if len(response_str) > 500:
-                    logger.debug(f"   Full response: {response_str}")
-
-                # Also check for errors in response
+                # Handle dict responses properly - extract key fields
                 if isinstance(tool_response, dict):
+                    # Set individual fields as attributes for better visibility
+                    for key, value in tool_response.items():
+                        # Limit attribute size to avoid OTEL limits
+                        value_str = str(value)
+                        if len(value_str) < 10000:
+                            span.set_attribute(f"tool.response.{key}", value_str)
+
+                    # Check for errors
                     if "error" in tool_response:
                         error_msg = str(tool_response["error"])
                         span.set_attribute("tool.error", error_msg)
@@ -186,13 +184,38 @@ class TelemetryHooks:
                         span.set_attribute("tool.is_error", True)
                         logger.error(f"❌ Tool failed: {tool_name}")
 
-                # Add as event too for timeline view
-                if len(response_str) > 1000:
-                    span.add_event(
-                        "Tool response", {"response": response_str[:1000] + "..."}
-                    )
+                    # Console logging - show structured response
+                    logger.info(f"✅ Tool response: {tool_name}")
+                    for key, value in tool_response.items():
+                        value_str = str(value)
+                        if len(value_str) > 200:
+                            logger.info(f"   {key}: {value_str[:200]}...")
+                        else:
+                            logger.info(f"   {key}: {value_str}")
                 else:
-                    span.add_event("Tool response", {"response": response_str})
+                    # Non-dict response - treat as string
+                    response_str = str(tool_response)
+                    span.set_attribute("tool.response", response_str)
+                    logger.info(f"✅ Tool response: {tool_name}")
+                    logger.info(f"   Response: {response_str[:500]}")
+
+                # Add full response as event for timeline view
+                try:
+                    response_json = (
+                        json.dumps(tool_response, indent=2)
+                        if isinstance(tool_response, (dict, list))
+                        else str(tool_response)
+                    )
+                    if len(response_json) > 2000:
+                        span.add_event(
+                            "Tool response", {"response": response_json[:2000] + "..."}
+                        )
+                    else:
+                        span.add_event("Tool response", {"response": response_json})
+                except Exception:
+                    span.add_event(
+                        "Tool response", {"response": str(tool_response)[:2000]}
+                    )
 
             span.end()
             if span_id:
