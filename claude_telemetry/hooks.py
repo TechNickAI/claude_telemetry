@@ -1,11 +1,11 @@
 """Claude SDK hooks for telemetry capture."""
 
 import json
-import logging
 import time
 from contextvars import ContextVar
 from typing import Any
 
+from loguru import logger
 from opentelemetry import trace
 
 from claude_telemetry.logfire_adapter import (
@@ -13,8 +13,6 @@ from claude_telemetry.logfire_adapter import (
     format_for_logfire_llm,
 )
 from claude_telemetry.telemetry import safe_span_operation
-
-logger = logging.getLogger(__name__)
 
 # Context variables to track spans across async boundaries
 current_session_span: ContextVar[Any | None] = ContextVar("session_span", default=None)

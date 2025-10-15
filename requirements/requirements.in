@@ -1,5 +1,6 @@
+# Core dependencies (must match pyproject.toml)
 claude-agent-sdk
-logfire
+loguru
 opentelemetry-api
 opentelemetry-exporter-otlp-proto-http
 opentelemetry-sdk

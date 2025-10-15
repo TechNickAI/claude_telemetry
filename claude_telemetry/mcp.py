@@ -1,11 +1,10 @@
 """MCP server configuration loader."""
 
 import json
-import logging
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 def load_mcp_config(config_path: Path | None = None) -> dict[str, Any] | None:

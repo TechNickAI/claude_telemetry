@@ -1,8 +1,6 @@
 """Main agent runner with telemetry hooks."""
 
-import logging
-
-from claude_agent_sdk import ClaudeAgent, ClaudeAgentOptions, HookMatcher
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, HookMatcher
 from opentelemetry.sdk.trace import TracerProvider
 from rich.console import Console
 from rich.markdown import Markdown
@@ -12,13 +10,11 @@ from claude_telemetry.hooks import TelemetryHooks
 from claude_telemetry.mcp import load_mcp_config
 from claude_telemetry.telemetry import configure_telemetry
 
-logger = logging.getLogger(__name__)
-
 
 async def run_agent_with_telemetry(
     prompt: str,
     system_prompt: str | None = None,
-    model: str = "claude-3-5-sonnet-20241022",
+    model: str | None = None,
     allowed_tools: list[str] | None = None,
     use_mcp: bool = True,
     tracer_provider: TracerProvider | None = None,
@@ -78,33 +74,49 @@ async def run_agent_with_telemetry(
     if use_mcp:
         mcp_config = load_mcp_config()
 
-    # Create agent options
+    # Create agent options with hooks
     options = ClaudeAgentOptions(
-        model=model,
-        system_prompt=system_prompt or "You are a helpful assistant.",
+        system_prompt=system_prompt,
         allowed_tools=allowed_tools,
         mcp_servers=mcp_config,
         hooks=hook_config,
     )
 
-    # Create and run agent
-    try:
-        agent = ClaudeAgent(options=options)
+    # Add model only if specified
+    if model:
+        options.model = model
 
-        # Submit the prompt
-        await agent.submit_prompt(prompt)
+    # Use async context manager for proper resource handling
+    async with ClaudeSDKClient(options=options) as client:
+        # Send the query
+        await client.query(prompt=prompt)
 
-        # Wait for completion
-        # The SDK handles the conversation loop internally
+        # Receive and process responses
+        response_text = ""
+        async for message in client.receive_response():
+            # Handle different message types
+            if hasattr(message, "content"):
+                # Extract text from content (could be a list of TextBlocks)
+                if isinstance(message.content, list):
+                    for block in message.content:
+                        if hasattr(block, "text"):
+                            response_text += block.text
+                            # Output to console for user
+                            console = Console()
+                            console.print(block.text, end="")
+                elif isinstance(message.content, str):
+                    response_text = message.content
+                    # Output to console for user
+                    console = Console()
+                    console.print(message.content, end="")
 
-    finally:
-        # Complete telemetry session
-        hooks.complete_session()
+    # Complete telemetry session after client is closed
+    hooks.complete_session()
 
 
-async def run_agent_interactive(
+async def run_agent_interactive(  # noqa: PLR0915
     system_prompt: str | None = None,
-    model: str = "claude-3-5-sonnet-20241022",
+    model: str | None = None,
     allowed_tools: list[str] | None = None,
     use_mcp: bool = True,
     tracer_provider: TracerProvider | None = None,
@@ -134,22 +146,12 @@ async def run_agent_interactive(
     if use_mcp:
         mcp_config = load_mcp_config()
 
-    # Create agent options
-    options = ClaudeAgentOptions(
-        model=model,
-        system_prompt=system_prompt or "You are a helpful assistant.",
-        allowed_tools=allowed_tools,
-        mcp_servers=mcp_config,
-    )
-
-    # Create agent
-    agent = ClaudeAgent(options=options)
-
     # Welcome message
+    model_info = f"Model: {model}\n" if model else ""
     console.print(
         Panel.fit(
             "[bold green]Claude Telemetry Interactive Mode[/bold green]\n"
-            f"Model: {model}\n"
+            f"{model_info}"
             f"Tools: {', '.join(allowed_tools) if allowed_tools else 'None'}\n"
             "Type 'exit' or Ctrl+D to quit",
             title="🤖 Welcome",
@@ -164,67 +166,90 @@ async def run_agent_interactive(
         "prompts_count": 0,
     }
 
-    try:
-        while True:
-            try:
-                # Get user input
-                user_input = input("\n> ")
+    # Initialize hooks once for the session
+    hooks = TelemetryHooks()
 
-                if user_input.lower() in ["exit", "quit", "bye"]:
+    # Create options with hooks
+    options = ClaudeAgentOptions(
+        system_prompt=system_prompt,
+        allowed_tools=allowed_tools,
+        mcp_servers=mcp_config,
+        hooks={
+            "UserPromptSubmit": [
+                HookMatcher(matcher=None, hooks=[hooks.on_user_prompt_submit])
+            ],
+            "PreToolUse": [HookMatcher(matcher=None, hooks=[hooks.on_pre_tool_use])],
+            "PostToolUse": [HookMatcher(matcher=None, hooks=[hooks.on_post_tool_use])],
+            "MessageComplete": [
+                HookMatcher(matcher=None, hooks=[hooks.on_message_complete])
+            ],
+        },
+    )
+
+    # Add model only if specified
+    if model:
+        options.model = model
+
+    # Use async context manager for the session
+    async with ClaudeSDKClient(options=options) as client:
+        try:
+            while True:
+                try:
+                    # Get user input
+                    user_input = input("\n> ")
+
+                    if user_input.lower() in ["exit", "quit", "bye"]:
+                        break
+
+                    if not user_input.strip():
+                        continue
+
+                    # Submit prompt and get response
+                    console.print()  # Empty line for spacing
+
+                    try:
+                        # Send the query
+                        await client.query(prompt=user_input)
+
+                        # Receive responses
+                        response_text = ""
+                        async for message in client.receive_response():
+                            if hasattr(message, "content"):
+                                # Extract text from content
+                                if isinstance(message.content, list):
+                                    for block in message.content:
+                                        if hasattr(block, "text"):
+                                            response_text += block.text
+                                elif isinstance(message.content, str):
+                                    response_text = message.content
+                                else:
+                                    response_text = str(message.content)
+
+                        # Display response with formatting
+                        if response_text:
+                            console.print(
+                                Panel(
+                                    Markdown(response_text),
+                                    title="Claude",
+                                    border_style="cyan",
+                                )
+                            )
+
+                        # Update session metrics
+                        session_metrics["prompts_count"] += 1
+
+                    finally:
+                        # Complete telemetry for this prompt
+                        hooks.complete_session()
+
+                except KeyboardInterrupt:
+                    console.print("\n[yellow]Use 'exit' to quit or Ctrl+D[/yellow]")
+                    continue
+                except EOFError:
                     break
 
-                if not user_input.strip():
-                    continue
-
-                # Initialize hooks for this prompt
-                hooks = TelemetryHooks()
-
-                # Add hooks to agent for this prompt
-                agent.options.hooks = {
-                    "UserPromptSubmit": [
-                        HookMatcher(matcher=None, hooks=[hooks.on_user_prompt_submit])
-                    ],
-                    "PreToolUse": [
-                        HookMatcher(matcher=None, hooks=[hooks.on_pre_tool_use])
-                    ],
-                    "PostToolUse": [
-                        HookMatcher(matcher=None, hooks=[hooks.on_post_tool_use])
-                    ],
-                    "MessageComplete": [
-                        HookMatcher(matcher=None, hooks=[hooks.on_message_complete])
-                    ],
-                }
-
-                # Submit prompt and get response
-                console.print()  # Empty line for spacing
-
-                try:
-                    response = await agent.submit_prompt(user_input)
-
-                    # Display response with formatting
-                    if response:
-                        console.print(
-                            Panel(
-                                Markdown(response),
-                                title="Claude",
-                                border_style="cyan",
-                            )
-                        )
-
-                    # Update session metrics
-                    session_metrics["prompts_count"] += 1
-
-                finally:
-                    # Complete telemetry for this prompt
-                    hooks.complete_session()
-
-            except KeyboardInterrupt:
-                console.print("\n[yellow]Use 'exit' to quit or Ctrl+D[/yellow]")
-                continue
-            except EOFError:
-                break
-
-    finally:
+        finally:
+            pass  # Client is automatically disconnected by async context manager
         # Show session summary
         console.print("\n" + "=" * 50)
         console.print(

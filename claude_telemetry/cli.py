@@ -1,11 +1,11 @@
 """Command-line interface for Claude Telemetry."""
 
-import logging
 import os
 from pathlib import Path
 
 import typer
 from dotenv import load_dotenv
+from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -20,6 +20,7 @@ app = typer.Typer(
     name="claudia",
     help="🤖 Claude agent with OpenTelemetry instrumentation",
     add_completion=False,
+    pretty_exceptions_enable=False,  # Less verbose errors
 )
 
 console = Console()
@@ -27,25 +28,19 @@ console = Console()
 # Load environment variables from .env file
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    handlers=[logging.StreamHandler()],
-)
 
-
-@app.command()
+@app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     prompt: str | None = typer.Argument(
         None,
         help="Task for Claude to perform. If not provided, starts interactive mode.",
     ),
-    model: str = typer.Option(
-        "claude-3-5-sonnet-20241022",
+    model: str | None = typer.Option(
+        None,
         "--model",
         "-m",
-        help="Claude model to use",
+        help="Claude model to use (defaults to Claude Code's setting)",
     ),
     system: str | None = typer.Option(
         None,
@@ -119,6 +114,10 @@ def main(
             --otel-endpoint https://api.honeycomb.io \\
             --otel-headers "x-honeycomb-team=YOUR_KEY"
     """
+    # If a subcommand was invoked, don't run main logic
+    if ctx.invoked_subcommand is not None:
+        return
+
     # Set environment variables if provided via CLI
     if logfire_token:
         os.environ["LOGFIRE_TOKEN"] = logfire_token
@@ -131,7 +130,7 @@ def main(
 
     if debug:
         os.environ["CLAUDE_TELEMETRY_DEBUG"] = "1"
-        logging.getLogger().setLevel(logging.DEBUG)
+        logger.level = "DEBUG"
 
     # Determine mode
     use_interactive = interactive or prompt is None
@@ -150,6 +149,10 @@ def main(
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]Interrupted by user[/yellow]")
+        except RuntimeError as e:
+            # Telemetry configuration errors - show them prominently
+            console.print(f"\n[bold red]{e}[/bold red]\n")
+            raise typer.Exit(1) from e
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             raise typer.Exit(1) from e
@@ -170,19 +173,25 @@ def main(
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]Interrupted by user[/yellow]")
+        except RuntimeError as e:
+            # Telemetry configuration errors - show them prominently
+            console.print(f"\n[bold red]{e}[/bold red]\n")
+            raise typer.Exit(1) from e
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             raise typer.Exit(1) from e
 
 
-def _show_startup_banner(model: str, tools: list[str] | None, use_mcp: bool) -> None:
+def _show_startup_banner(
+    model: str | None, tools: list[str] | None, use_mcp: bool
+) -> None:
     """Show a fancy startup banner."""
     # Create configuration table
     table = Table(show_header=False, box=None, padding=(0, 1))
     table.add_column("Key", style="cyan")
     table.add_column("Value", style="green")
 
-    table.add_row("Model", model)
+    table.add_row("Model", model or "Claude Code default")
     table.add_row("Tools", ", ".join(tools) if tools else "All available")
     table.add_row("MCP", "✅ Enabled" if use_mcp else "❌ Disabled")
 

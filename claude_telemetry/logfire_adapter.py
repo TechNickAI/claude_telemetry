@@ -1,13 +1,11 @@
 """Logfire-specific enhancements for LLM telemetry."""
 
 import json
-import logging
 from typing import Any
 
+from loguru import logger
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
-
-logger = logging.getLogger(__name__)
 
 
 def configure_logfire(service_name: str = "claude-agents") -> TracerProvider:
@@ -20,8 +18,16 @@ def configure_logfire(service_name: str = "claude-agents") -> TracerProvider:
     Returns:
         Configured TracerProvider with Logfire enhancements
     """
+    import os  # noqa: PLC0415
+
     try:
         import logfire  # noqa: PLC0415
+
+        # Check token is present
+        token = os.getenv("LOGFIRE_TOKEN")
+        if not token:
+            msg = "LOGFIRE_TOKEN environment variable is not set"
+            raise ValueError(msg)  # noqa: TRY301
 
         # Configure Logfire with service name
         logfire.configure(
@@ -33,12 +39,8 @@ def configure_logfire(service_name: str = "claude-agents") -> TracerProvider:
         provider = trace.get_tracer_provider()
 
         # Log the Logfire project URL
-        project_name = (
-            logfire.get_project_name()
-            if hasattr(logfire, "get_project_name")
-            else service_name
-        )
-        logger.info(f"Logfire project URL: https://logfire.pydantic.dev/{project_name}")
+        logger.info(f"Logfire configured with service name: {service_name}")
+        logger.info("Note: Token validation happens on first span export")
 
     except Exception:
         logger.exception("Failed to configure Logfire")
