@@ -10,6 +10,12 @@ from claude_telemetry.runner import run_agent_with_telemetry
 from claude_telemetry.sync import run_agent_with_telemetry_sync
 
 
+async def _async_message_generator(messages):
+    """Helper to create an async generator for mocking."""
+    for message in messages:
+        yield message
+
+
 class TestEndToEndTelemetry:
     """End-to-end telemetry tests."""
 
@@ -29,8 +35,9 @@ class TestEndToEndTelemetry:
         mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = mocker.AsyncMock()
         mock_client.query = mocker.AsyncMock()
-        mock_client.receive_response = mocker.AsyncMock(
-            return_value=iter([mock_message])
+        # Make receive_response return an async generator when called
+        mock_client.receive_response = mocker.MagicMock(
+            return_value=_async_message_generator([mock_message])
         )
 
         mocker.patch(

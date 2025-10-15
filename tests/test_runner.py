@@ -5,6 +5,12 @@ import pytest
 from claude_telemetry.runner import extract_message_text, run_agent_with_telemetry
 
 
+async def _empty_async_generator():
+    """Helper to create an empty async generator for mocking."""
+    return
+    yield  # Make it a generator (unreachable)
+
+
 class TestExtractMessageText:
     """Tests for extract_message_text function."""
 
@@ -109,7 +115,10 @@ class TestRunAgentWithTelemetry:
         mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = mocker.AsyncMock()
         mock_client.query = mocker.AsyncMock()
-        mock_client.receive_response = mocker.AsyncMock(return_value=iter([]))
+        # Make receive_response return an async generator when called
+        mock_client.receive_response = mocker.MagicMock(
+            return_value=_empty_async_generator()
+        )
 
         await run_agent_with_telemetry(prompt="Test prompt")
 
@@ -127,7 +136,10 @@ class TestRunAgentWithTelemetry:
         mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = mocker.AsyncMock()
         mock_client.query = mocker.AsyncMock()
-        mock_client.receive_response = mocker.AsyncMock(return_value=iter([]))
+        # Make receive_response return an async generator when called
+        mock_client.receive_response = mocker.MagicMock(
+            return_value=_empty_async_generator()
+        )
 
         await run_agent_with_telemetry(prompt="Analyze my code")
 
@@ -152,7 +164,10 @@ class TestRunAgentWithTelemetry:
         mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = mocker.AsyncMock()
         mock_client.query = mocker.AsyncMock()
-        mock_client.receive_response = mocker.AsyncMock(return_value=iter([]))
+        # Make receive_response return an async generator when called
+        mock_client.receive_response = mocker.MagicMock(
+            return_value=_empty_async_generator()
+        )
 
         await run_agent_with_telemetry(prompt="Test")
 
@@ -212,7 +227,10 @@ class TestRunAgentWithTelemetry:
         mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = mocker.AsyncMock()
         mock_client.query = mocker.AsyncMock()
-        mock_client.receive_response = mocker.AsyncMock(return_value=iter([]))
+        # Make receive_response return an async generator when called
+        mock_client.receive_response = mocker.MagicMock(
+            return_value=_empty_async_generator()
+        )
 
         await run_agent_with_telemetry(prompt="Test", model="claude-3-opus-20240229")
 
@@ -237,7 +255,10 @@ class TestRunAgentWithTelemetry:
         mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = mocker.AsyncMock()
         mock_client.query = mocker.AsyncMock()
-        mock_client.receive_response = mocker.AsyncMock(return_value=iter([]))
+        # Make receive_response return an async generator when called
+        mock_client.receive_response = mocker.MagicMock(
+            return_value=_empty_async_generator()
+        )
 
         await run_agent_with_telemetry(
             prompt="Test", allowed_tools=["Read", "Write", "Bash"]

@@ -39,9 +39,13 @@ class TestTelemetryConfiguration:
         """Test error when LOGFIRE_TOKEN set but logfire not installed."""
         monkeypatch.setenv("LOGFIRE_TOKEN", "test_token")
 
+        # Use MagicMock explicitly to avoid async mock warnings
+        mock_configure = mocker.MagicMock(
+            side_effect=ImportError("No module named 'logfire'")
+        )
         mocker.patch(
             "claude_telemetry.logfire_adapter.configure_logfire",
-            side_effect=ImportError("No module named 'logfire'"),
+            mock_configure,
         )
 
         with pytest.raises(RuntimeError, match="logfire package not installed"):

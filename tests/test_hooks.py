@@ -116,7 +116,7 @@ class TestPreToolUse:
         hooks.create_tool_spans = True
         hooks.tracer = mock_tracer
         hooks.session_span = mocker.MagicMock()
-        hooks.metrics = {"tools_used": 0}
+        # No need to set metrics - __init__ handles it now
 
         input_data = {
             "tool_name": "Read",
@@ -136,7 +136,7 @@ class TestPreToolUse:
         """Test that event is added when create_tool_spans=False."""
         hooks.create_tool_spans = False
         hooks.session_span = mocker.MagicMock()
-        hooks.metrics = {"tools_used": 0}
+        # No need to set metrics - __init__ handles it now
 
         input_data = {
             "tool_name": "Write",
@@ -157,7 +157,7 @@ class TestPreToolUse:
         """Test that tool usage is tracked."""
         hooks.session_span = mocker.MagicMock()
         hooks.create_tool_spans = False
-        hooks.metrics = {"tools_used": 0}
+        # No need to set metrics - __init__ handles it now
 
         input_data = {"tool_name": "Bash", "tool_input": {"command": "ls -la"}}
 
@@ -277,7 +277,7 @@ class TestMessageComplete:
     async def test_updates_span_attributes(self, hooks, mocker):
         """Test that span attributes are updated with token counts."""
         hooks.session_span = mocker.MagicMock()
-        hooks.metrics = {"input_tokens": 0, "output_tokens": 0, "turns": 0}
+        # No need to set metrics - __init__ handles it now
 
         message = mocker.MagicMock()
         message.usage.input_tokens = 100
@@ -298,7 +298,7 @@ class TestMessageComplete:
     async def test_stores_assistant_message(self, hooks, mocker):
         """Test that assistant message is stored in history."""
         hooks.session_span = mocker.MagicMock()
-        hooks.metrics = {"input_tokens": 0, "output_tokens": 0, "turns": 0}
+        # No need to set metrics - __init__ handles it now
 
         message = mocker.MagicMock()
         message.usage.input_tokens = 100
@@ -319,13 +319,10 @@ class TestSessionCompletion:
         """Test that final attributes are set on span."""
         mock_span = mocker.MagicMock()
         hooks.session_span = mock_span
-        hooks.metrics = {
-            "model": "claude-3-5-sonnet-20241022",
-            "tools_used": 3,
-            "start_time": time.time(),
-            "input_tokens": 100,
-            "output_tokens": 200,
-        }
+        # Update existing metrics rather than replacing the whole dict
+        hooks.metrics["model"] = "claude-3-5-sonnet-20241022"
+        hooks.metrics["tools_used"] = 3
+        hooks.metrics["start_time"] = time.time()
         hooks.tools_used = ["Read", "Write", "Bash"]
 
         hooks.complete_session()
@@ -335,19 +332,23 @@ class TestSessionCompletion:
             "gen_ai.request.model", "claude-3-5-sonnet-20241022"
         )
         mock_span.set_attribute.assert_any_call("tools_used", 3)
-        mock_span.set_attribute.assert_any_call("tool_names", "Read,Write,Bash")
+        # Check tool_names was set with all three tools (order doesn't matter)
+        tool_names_calls = [
+            call
+            for call in mock_span.set_attribute.call_args_list
+            if call[0][0] == "tool_names"
+        ]
+        assert len(tool_names_calls) == 1
+        tool_names = set(tool_names_calls[0][0][1].split(","))
+        assert tool_names == {"Read", "Write", "Bash"}
 
     def test_ends_span(self, hooks, mocker):
         """Test that span is ended."""
         mock_span = mocker.MagicMock()
         hooks.session_span = mock_span
-        hooks.metrics = {
-            "model": "test",
-            "start_time": time.time(),
-            "tools_used": 0,
-            "input_tokens": 0,
-            "output_tokens": 0,
-        }
+        # Update existing metrics rather than replacing
+        hooks.metrics["model"] = "test"
+        hooks.metrics["start_time"] = time.time()
 
         hooks.complete_session()
 
@@ -357,13 +358,10 @@ class TestSessionCompletion:
     def test_resets_state(self, hooks, mocker):
         """Test that internal state is reset after completion."""
         hooks.session_span = mocker.MagicMock()
-        hooks.metrics = {
-            "model": "test",
-            "start_time": time.time(),
-            "tools_used": 1,
-            "input_tokens": 0,
-            "output_tokens": 0,
-        }
+        # Update existing metrics
+        hooks.metrics["model"] = "test"
+        hooks.metrics["start_time"] = time.time()
+        hooks.metrics["tools_used"] = 1
         hooks.messages = [{"role": "user", "content": "test"}]
         hooks.tools_used = ["Read"]
         hooks.tool_spans = {"tool-1": mocker.MagicMock()}

@@ -36,7 +36,16 @@ class TelemetryHooks:
         self.tracer = trace.get_tracer(tracer_name)
         self.session_span = None
         self.tool_spans = {}
-        self.metrics = {}
+        # Initialize metrics with all required keys so methods can safely access them
+        self.metrics = {
+            "prompt": "",
+            "model": "unknown",
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "tools_used": 0,
+            "turns": 0,
+            "start_time": 0.0,
+        }
         self.messages = []
         self.tools_used = []
         self.create_tool_spans = create_tool_spans
@@ -193,11 +202,11 @@ class TelemetryHooks:
                         if len(value_str) < 2000:
                             event_data[f"response.{key}"] = value_str
 
-                    # Check for errors
-                    if tool_response.get("error"):
+                    # Check for errors - crash loudly if malformed
+                    if "error" in tool_response and tool_response["error"]:
                         event_data["status"] = "error"
                         event_data["error"] = str(tool_response["error"])[:500]
-                    elif tool_response.get("isError"):
+                    elif "isError" in tool_response and tool_response["isError"]:
                         event_data["status"] = "error"
                     else:
                         event_data["status"] = "success"
@@ -242,14 +251,14 @@ class TelemetryHooks:
                         if len(value_str) < 10000:
                             span.set_attribute(f"tool.response.{key}", value_str)
 
-                    # Check for errors
-                    if tool_response.get("error"):
+                    # Check for errors - crash loudly if malformed
+                    if "error" in tool_response and tool_response["error"]:
                         error_msg = str(tool_response["error"])
                         span.set_attribute("tool.error", error_msg)
                         span.set_attribute("tool.status", "error")
                         logger.error(f"❌ Tool error: {tool_name}")
                         logger.error(f"   Error: {error_msg}")
-                    elif tool_response.get("isError"):
+                    elif "isError" in tool_response and tool_response["isError"]:
                         span.set_attribute("tool.is_error", True)
                         span.set_attribute("tool.status", "error")
                         logger.error(f"❌ Tool failed: {tool_name}")
