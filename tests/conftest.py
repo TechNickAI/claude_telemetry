@@ -1,5 +1,7 @@
 """Shared pytest fixtures for claude_telemetry tests."""
 
+from opentelemetry import trace
+from opentelemetry.trace import ProxyTracerProvider
 import pytest
 
 
@@ -16,6 +18,23 @@ def reset_environment(monkeypatch):
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_HEADERS", raising=False)
     monkeypatch.delenv("CLAUDE_TELEMETRY_DEBUG", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def reset_tracer_provider():
+    """
+    Reset the global tracer provider before each test.
+
+    This prevents state from Logfire's pytest plugin or previous tests
+    from interfering with test isolation.
+    """
+    # Reset to a fresh ProxyTracerProvider
+    trace._TRACER_PROVIDER = None
+    trace.set_tracer_provider(ProxyTracerProvider())
+    yield
+    # Clean up after test
+    trace._TRACER_PROVIDER = None
+    trace.set_tracer_provider(ProxyTracerProvider())
 
 
 @pytest.fixture

@@ -116,6 +116,7 @@ class TestPreToolUse:
         hooks.create_tool_spans = True
         hooks.tracer = mock_tracer
         hooks.session_span = mocker.MagicMock()
+        hooks.metrics = {"tools_used": 0}
 
         input_data = {
             "tool_name": "Read",
@@ -135,6 +136,7 @@ class TestPreToolUse:
         """Test that event is added when create_tool_spans=False."""
         hooks.create_tool_spans = False
         hooks.session_span = mocker.MagicMock()
+        hooks.metrics = {"tools_used": 0}
 
         input_data = {
             "tool_name": "Write",
@@ -155,6 +157,7 @@ class TestPreToolUse:
         """Test that tool usage is tracked."""
         hooks.session_span = mocker.MagicMock()
         hooks.create_tool_spans = False
+        hooks.metrics = {"tools_used": 0}
 
         input_data = {"tool_name": "Bash", "tool_input": {"command": "ls -la"}}
 
@@ -314,37 +317,53 @@ class TestSessionCompletion:
 
     def test_sets_final_attributes(self, hooks, mocker):
         """Test that final attributes are set on span."""
-        hooks.session_span = mocker.MagicMock()
+        mock_span = mocker.MagicMock()
+        hooks.session_span = mock_span
         hooks.metrics = {
             "model": "claude-3-5-sonnet-20241022",
             "tools_used": 3,
             "start_time": time.time(),
+            "input_tokens": 100,
+            "output_tokens": 200,
         }
         hooks.tools_used = ["Read", "Write", "Bash"]
 
         hooks.complete_session()
 
-        hooks.session_span.set_attribute.assert_any_call(
+        # Check the captured mock span (hooks.session_span is now None)
+        mock_span.set_attribute.assert_any_call(
             "gen_ai.request.model", "claude-3-5-sonnet-20241022"
         )
-        hooks.session_span.set_attribute.assert_any_call("tools_used", 3)
-        hooks.session_span.set_attribute.assert_any_call(
-            "tool_names", "Read,Write,Bash"
-        )
+        mock_span.set_attribute.assert_any_call("tools_used", 3)
+        mock_span.set_attribute.assert_any_call("tool_names", "Read,Write,Bash")
 
     def test_ends_span(self, hooks, mocker):
         """Test that span is ended."""
-        hooks.session_span = mocker.MagicMock()
-        hooks.metrics = {"model": "test", "start_time": time.time()}
+        mock_span = mocker.MagicMock()
+        hooks.session_span = mock_span
+        hooks.metrics = {
+            "model": "test",
+            "start_time": time.time(),
+            "tools_used": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
 
         hooks.complete_session()
 
-        hooks.session_span.end.assert_called_once()
+        # Check the captured mock span (hooks.session_span is now None)
+        mock_span.end.assert_called_once()
 
     def test_resets_state(self, hooks, mocker):
         """Test that internal state is reset after completion."""
         hooks.session_span = mocker.MagicMock()
-        hooks.metrics = {"model": "test", "start_time": time.time()}
+        hooks.metrics = {
+            "model": "test",
+            "start_time": time.time(),
+            "tools_used": 1,
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
         hooks.messages = [{"role": "user", "content": "test"}]
         hooks.tools_used = ["Read"]
         hooks.tool_spans = {"tool-1": mocker.MagicMock()}

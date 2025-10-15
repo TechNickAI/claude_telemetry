@@ -26,7 +26,7 @@ class TestTelemetryConfiguration:
 
         mock_provider = mocker.MagicMock()
         mock_configure_logfire = mocker.patch(
-            "claude_telemetry.telemetry.configure_logfire",
+            "claude_telemetry.logfire_adapter.configure_logfire",
             return_value=mock_provider,
         )
 
@@ -40,7 +40,7 @@ class TestTelemetryConfiguration:
         monkeypatch.setenv("LOGFIRE_TOKEN", "test_token")
 
         mocker.patch(
-            "claude_telemetry.telemetry.configure_logfire",
+            "claude_telemetry.logfire_adapter.configure_logfire",
             side_effect=ImportError("No module named 'logfire'"),
         )
 
@@ -97,7 +97,7 @@ class TestTelemetryConfiguration:
         monkeypatch.setenv("LOGFIRE_TOKEN", "test_token")
 
         mock_configure_logfire = mocker.patch(
-            "claude_telemetry.telemetry.configure_logfire"
+            "claude_telemetry.logfire_adapter.configure_logfire"
         )
 
         configure_telemetry(service_name="my-custom-service")
@@ -116,7 +116,7 @@ class TestTelemetryConfiguration:
             "claude_telemetry.telemetry.trace.set_tracer_provider"
         )
         mock_configure_logfire = mocker.patch(
-            "claude_telemetry.telemetry.configure_logfire"
+            "claude_telemetry.logfire_adapter.configure_logfire"
         )
 
         # Provided tracer should win

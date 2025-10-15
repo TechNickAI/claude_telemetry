@@ -194,7 +194,7 @@ class TelemetryHooks:
                             event_data[f"response.{key}"] = value_str
 
                     # Check for errors
-                    if "error" in tool_response:
+                    if tool_response.get("error"):
                         event_data["status"] = "error"
                         event_data["error"] = str(tool_response["error"])[:500]
                     elif tool_response.get("isError"):
@@ -243,13 +243,13 @@ class TelemetryHooks:
                             span.set_attribute(f"tool.response.{key}", value_str)
 
                     # Check for errors
-                    if "error" in tool_response:
+                    if tool_response.get("error"):
                         error_msg = str(tool_response["error"])
                         span.set_attribute("tool.error", error_msg)
                         span.set_attribute("tool.status", "error")
                         logger.error(f"❌ Tool error: {tool_name}")
                         logger.error(f"   Error: {error_msg}")
-                    elif "isError" in tool_response and tool_response["isError"]:
+                    elif tool_response.get("isError"):
                         span.set_attribute("tool.is_error", True)
                         span.set_attribute("tool.status", "error")
                         logger.error(f"❌ Tool failed: {tool_name}")

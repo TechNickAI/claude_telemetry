@@ -136,8 +136,8 @@ lint.isort.lines-between-types = 0
 docstring-code-format = true
 
 [tool.ruff.lint.per-file-ignores]
-"test_*.py" = ["PLR0915", "ARG001", "ARG005", "SLF001", "F841"]
-"**/conftest.py" = ["ARG001"]
+"test_*.py" = ["PLR0915", "ARG001", "ARG005", "SLF001", "F841", "TRY002"]
+"**/conftest.py" = ["ARG001", "SLF001"]
 "examples/*.py" = [
     "T201",
     "INP001",

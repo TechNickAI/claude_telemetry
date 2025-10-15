@@ -169,14 +169,20 @@ class TestRunAgentWithTelemetry:
             return_value=mock_hooks,
         )
 
+        # Create a proper async mock that raises on query
         mock_client = mocker.AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        async def mock_query_error(*args, **kwargs):
+            raise Exception("Test error")
+
+        mock_client.query = mock_query_error
+
         mocker.patch(
             "claude_telemetry.runner.ClaudeSDKClient",
             return_value=mock_client,
         )
-        mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = mocker.AsyncMock()
-        mock_client.query = mocker.AsyncMock(side_effect=Exception("Test error"))
 
         with pytest.raises(Exception, match="Test error"):
             await run_agent_with_telemetry(prompt="Test")
