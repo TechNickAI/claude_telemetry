@@ -104,7 +104,7 @@ class TestParseArgs:
         mock_configure.assert_called_once_with(debug=True)
 
     def test_sets_environment_variables(self, monkeypatch):
-        """Test that telemetry env vars are set."""
+        """Test that telemetry env vars are set with space format."""
         # Explicitly set to empty first to avoid side effects
         monkeypatch.setenv("LOGFIRE_TOKEN", "")
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
@@ -121,6 +121,31 @@ class TestParseArgs:
                 "https://test.com",
                 "--otel-headers",
                 "auth=bearer",
+                "test",
+            ],
+        )
+
+        prompt, extra_args, debug = parse_args()
+
+        assert os.getenv("LOGFIRE_TOKEN") == "test_token"
+        assert os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "https://test.com"
+        assert os.getenv("OTEL_EXPORTER_OTLP_HEADERS") == "auth=bearer"
+
+    def test_sets_environment_variables_with_equals_format(self, monkeypatch):
+        """Test that telemetry env vars are set with --flag=value format."""
+        # Explicitly set to empty first to avoid side effects
+        monkeypatch.setenv("LOGFIRE_TOKEN", "")
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_HEADERS", "")
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "claudia",
+                "--logfire-token=test_token",
+                "--otel-endpoint=https://test.com",
+                "--otel-headers=auth=bearer",
                 "test",
             ],
         )

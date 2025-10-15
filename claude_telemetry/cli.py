@@ -70,6 +70,23 @@ def parse_args() -> tuple[str | None, dict[str, str | None], bool]:  # noqa: PLR
     while i < len(argv):
         arg = argv[i]
 
+        # Handle --flag=value format for claudia-specific flags
+        if "=" in arg:
+            flag_part, value_part = arg.split("=", 1)
+            if flag_part == "--logfire-token":
+                logfire_token = value_part
+                i += 1
+                continue
+            elif flag_part == "--otel-endpoint":
+                otel_endpoint = value_part
+                i += 1
+                continue
+            elif flag_part == "--otel-headers":
+                otel_headers = value_part
+                i += 1
+                continue
+
+        # Handle --flag value format for claudia-specific flags
         if arg == "--logfire-token":
             logfire_token = argv[i + 1] if i + 1 < len(argv) else None
             i += 2
