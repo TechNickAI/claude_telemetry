@@ -7,7 +7,6 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from claude_telemetry.hooks import TelemetryHooks
-from claude_telemetry.mcp import load_mcp_config
 from claude_telemetry.telemetry import configure_telemetry
 
 
@@ -16,7 +15,6 @@ async def run_agent_with_telemetry(
     system_prompt: str | None = None,
     model: str | None = None,
     allowed_tools: list[str] | None = None,
-    use_mcp: bool = True,
     tracer_provider: TracerProvider | None = None,
 ) -> None:
     """
@@ -29,11 +27,13 @@ async def run_agent_with_telemetry(
         system_prompt: System instructions for Claude
         model: Claude model to use
         allowed_tools: List of SDK tool names to allow (e.g., ["Read", "Write", "Bash"])
-        use_mcp: Whether to load MCP servers from .mcp.json
         tracer_provider: Optional custom tracer provider
 
     Returns:
         None - prints Claude's responses and sends telemetry
+
+    Note:
+        MCP servers configured via `claude mcp add` will be automatically available.
     """
     # Configure telemetry
     configure_telemetry(tracer_provider)
@@ -54,16 +54,11 @@ async def run_agent_with_telemetry(
         "PreCompact": [HookMatcher(matcher=None, hooks=[hooks.on_pre_compact])],
     }
 
-    # Load MCP configuration if requested
-    mcp_config = None
-    if use_mcp:
-        mcp_config = load_mcp_config()
-
     # Create agent options with hooks
+    # Note: Don't pass mcp_servers - let Claude CLI use its own config
     options = ClaudeAgentOptions(
         system_prompt=system_prompt,
         allowed_tools=allowed_tools,
-        mcp_servers=mcp_config,
         hooks=hook_config,
     )
 
@@ -103,7 +98,6 @@ async def run_agent_interactive(  # noqa: PLR0915
     system_prompt: str | None = None,
     model: str | None = None,
     allowed_tools: list[str] | None = None,
-    use_mcp: bool = True,
     tracer_provider: TracerProvider | None = None,
 ) -> None:
     """
@@ -115,21 +109,18 @@ async def run_agent_interactive(  # noqa: PLR0915
         system_prompt: System instructions for Claude
         model: Claude model to use
         allowed_tools: List of SDK tool names to allow
-        use_mcp: Whether to load MCP servers from .mcp.json
         tracer_provider: Optional custom tracer provider
 
     Returns:
         None - runs interactive session
+
+    Note:
+        MCP servers configured via `claude mcp add` will be automatically available.
     """
     console = Console()
 
     # Configure telemetry once for the session
     configure_telemetry(tracer_provider)
-
-    # Load MCP configuration if requested
-    mcp_config = None
-    if use_mcp:
-        mcp_config = load_mcp_config()
 
     # Welcome message
     model_info = f"Model: {model}\n" if model else ""
@@ -155,10 +146,10 @@ async def run_agent_interactive(  # noqa: PLR0915
     hooks = TelemetryHooks()
 
     # Create options with hooks
+    # Note: Don't pass mcp_servers - let Claude CLI use its own config
     options = ClaudeAgentOptions(
         system_prompt=system_prompt,
         allowed_tools=allowed_tools,
-        mcp_servers=mcp_config,
         hooks={
             "UserPromptSubmit": [
                 HookMatcher(matcher=None, hooks=[hooks.on_user_prompt_submit])

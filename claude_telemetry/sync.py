@@ -12,7 +12,6 @@ def run_agent_with_telemetry_sync(
     system_prompt: str | None = None,
     model: str = "claude-3-5-sonnet-20241022",
     allowed_tools: list[str] | None = None,
-    use_mcp: bool = True,
     tracer_provider: TracerProvider | None = None,
 ) -> None:
     """
@@ -26,11 +25,13 @@ def run_agent_with_telemetry_sync(
         system_prompt: System instructions for Claude
         model: Claude model to use
         allowed_tools: List of SDK tool names to allow
-        use_mcp: Whether to load MCP servers from .mcp.json
         tracer_provider: Optional custom tracer provider
 
     Returns:
         None - prints Claude's responses and sends telemetry
+
+    Note:
+        MCP servers configured via `claude mcp add` will be automatically available.
 
     Example:
         >>> from claude_telemetry import run_agent_with_telemetry_sync
@@ -45,7 +46,6 @@ def run_agent_with_telemetry_sync(
             system_prompt=system_prompt,
             model=model,
             allowed_tools=allowed_tools,
-            use_mcp=use_mcp,
             tracer_provider=tracer_provider,
         )
     )
@@ -55,7 +55,6 @@ def run_agent_interactive_sync(
     system_prompt: str | None = None,
     model: str = "claude-3-5-sonnet-20241022",
     allowed_tools: list[str] | None = None,
-    use_mcp: bool = True,
     tracer_provider: TracerProvider | None = None,
 ) -> None:
     """
@@ -65,11 +64,13 @@ def run_agent_interactive_sync(
         system_prompt: System instructions for Claude
         model: Claude model to use
         allowed_tools: List of SDK tool names to allow
-        use_mcp: Whether to load MCP servers from .mcp.json
         tracer_provider: Optional custom tracer provider
 
     Returns:
         None - runs interactive session
+
+    Note:
+        MCP servers configured via `claude mcp add` will be automatically available.
 
     Example:
         >>> from claude_telemetry import run_agent_interactive_sync
@@ -81,7 +82,6 @@ def run_agent_interactive_sync(
             system_prompt=system_prompt,
             model=model,
             allowed_tools=allowed_tools,
-            use_mcp=use_mcp,
             tracer_provider=tracer_provider,
         )
     )

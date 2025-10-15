@@ -54,11 +54,6 @@ def main(
         "-t",
         help="SDK tools to allow (can specify multiple times)",
     ),
-    no_mcp: bool = typer.Option(
-        False,
-        "--no-mcp",
-        help="Disable MCP server loading from .mcp.json",
-    ),
     interactive: bool = typer.Option(
         False,
         "--interactive",
@@ -137,7 +132,7 @@ def main(
 
     if use_interactive:
         # Show fancy startup banner
-        _show_startup_banner(model, tools, not no_mcp)
+        _show_startup_banner(model, tools)
 
         # Run interactive mode
         try:
@@ -145,7 +140,6 @@ def main(
                 system_prompt=system,
                 model=model,
                 allowed_tools=tools,
-                use_mcp=not no_mcp,
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]Interrupted by user[/yellow]")
@@ -169,7 +163,6 @@ def main(
                 system_prompt=system,
                 model=model,
                 allowed_tools=tools,
-                use_mcp=not no_mcp,
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]Interrupted by user[/yellow]")
@@ -182,9 +175,7 @@ def main(
             raise typer.Exit(1) from e
 
 
-def _show_startup_banner(
-    model: str | None, tools: list[str] | None, use_mcp: bool
-) -> None:
+def _show_startup_banner(model: str | None, tools: list[str] | None) -> None:
     """Show a fancy startup banner."""
     # Create configuration table
     table = Table(show_header=False, box=None, padding=(0, 1))
@@ -193,7 +184,7 @@ def _show_startup_banner(
 
     table.add_row("Model", model or "Claude Code default")
     table.add_row("Tools", ", ".join(tools) if tools else "All available")
-    table.add_row("MCP", "✅ Enabled" if use_mcp else "❌ Disabled")
+    table.add_row("MCP", "Via Claude Code config")
 
     # Check telemetry backend
     if os.getenv("LOGFIRE_TOKEN"):
