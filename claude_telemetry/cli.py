@@ -1,7 +1,6 @@
 """Command-line interface for Claude Telemetry."""
 
 import os
-import sys
 from pathlib import Path
 
 import typer
@@ -9,6 +8,7 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from typing import Annotated
 
 from claude_telemetry import __version__
 from claude_telemetry.helpers.logger import configure_logger
@@ -21,6 +21,14 @@ console = Console()
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Create Typer app with settings to allow unknown options
+app = typer.Typer(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_enable=True,
+)
 
 
 def handle_agent_error(e: Exception) -> None:
@@ -37,208 +45,18 @@ def handle_agent_error(e: Exception) -> None:
     raise typer.Exit(1) from e
 
 
-def parse_args() -> tuple[str | None, dict[str, str | None], bool]:  # noqa: PLR0915
-    """
-    Parse command line arguments.
-
-    Returns:
-        (prompt, extra_args, claudia_debug)
-    """
-    argv = sys.argv[1:]  # Skip program name
-
-    # Handle special commands first
-    if "version" in argv or "--version" in argv or "-v" in argv:
+def version_callback(value: bool) -> None:
+    """Show version and exit."""
+    if value:
         console.print(f"claudia version {__version__}")
-        sys.exit(0)
+        raise typer.Exit
 
-    if "config" in argv or "--config" in argv:
+
+def config_callback(value: bool) -> None:
+    """Show config and exit."""
+    if value:
         show_config()
-        sys.exit(0)
-
-    if "--help" in argv or "-h" in argv:
-        show_help()
-        sys.exit(0)
-
-    # Extract claudia-specific flags and separate extra args
-    logfire_token = None
-    otel_endpoint = None
-    otel_headers = None
-    claudia_debug = False
-    extra_args_list = []
-
-    i = 0
-    while i < len(argv):
-        arg = argv[i]
-
-        # Handle --flag=value format for claudia-specific flags
-        if "=" in arg:
-            flag_part, value_part = arg.split("=", 1)
-            if flag_part == "--logfire-token":
-                logfire_token = value_part
-                i += 1
-                continue
-            elif flag_part == "--otel-endpoint":
-                otel_endpoint = value_part
-                i += 1
-                continue
-            elif flag_part == "--otel-headers":
-                otel_headers = value_part
-                i += 1
-                continue
-
-        # Handle --flag value format for claudia-specific flags
-        if arg == "--logfire-token":
-            logfire_token = argv[i + 1] if i + 1 < len(argv) else None
-            i += 2
-            continue
-        elif arg == "--otel-endpoint":
-            otel_endpoint = argv[i + 1] if i + 1 < len(argv) else None
-            i += 2
-            continue
-        elif arg == "--otel-headers":
-            otel_headers = argv[i + 1] if i + 1 < len(argv) else None
-            i += 2
-            continue
-        elif arg == "--claudia-debug":
-            claudia_debug = True
-            i += 1
-            continue
-
-        # Everything else goes to extra_args_list
-        extra_args_list.append(arg)
-        i += 1
-
-    # Set telemetry env vars
-    if logfire_token:
-        os.environ["LOGFIRE_TOKEN"] = logfire_token
-    if otel_endpoint:
-        os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = otel_endpoint
-    if otel_headers:
-        os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = otel_headers
-    if claudia_debug:
-        os.environ["CLAUDE_TELEMETRY_DEBUG"] = "1"
-        configure_logger(debug=True)
-
-    # Find the prompt - it's the last standalone argument (not a flag or flag value)
-    # Work backwards to find it
-    prompt = None
-    prompt_idx = -1
-
-    for i in range(len(extra_args_list) - 1, -1, -1):
-        arg = extra_args_list[i]
-
-        if arg.startswith("-"):
-            # This is a flag, keep looking
-            continue
-
-        # This is a non-flag argument
-        # Check if it's a value for the previous flag
-        if i > 0:
-            prev_arg = extra_args_list[i - 1]
-            # If previous arg is a flag without =, this is its value
-            if prev_arg.startswith("-") and "=" not in prev_arg:
-                continue
-
-        # Found the prompt!
-        prompt = arg
-        prompt_idx = i
-        break
-
-    # Remove prompt from extra_args_list if found
-    if prompt_idx >= 0:
-        extra_args_list.pop(prompt_idx)
-
-    # Parse extra_args into dict
-    extra_args = _parse_flags(extra_args_list)
-
-    return prompt, extra_args, claudia_debug
-
-
-def _parse_flags(args: list[str]) -> dict[str, str | None]:
-    """Parse flag arguments into a dict."""
-    extra_args = {}
-    i = 0
-
-    while i < len(args):
-        arg = args[i]
-
-        if not arg.startswith("-"):
-            # Standalone value - shouldn't happen if prompt was removed correctly
-            i += 1
-            continue
-
-        # Handle --flag or -f
-        if "=" in arg:
-            # --flag=value or -f=value format
-            flag_part, value_part = arg.split("=", 1)
-            flag_name = flag_part.lstrip("-")
-            extra_args[flag_name] = value_part
-            i += 1
-        else:
-            # --flag value or --flag (boolean) format
-            flag_name = arg.lstrip("-")
-
-            # Check if next arg is a value (doesn't start with -)
-            if i + 1 < len(args) and not args[i + 1].startswith("-"):
-                extra_args[flag_name] = args[i + 1]
-                i += 2
-            else:
-                # Boolean flag
-                extra_args[flag_name] = None
-                i += 1
-
-    return extra_args
-
-
-def show_help() -> None:
-    """Show help message."""
-    console.print("""
-[bold]Usage:[/bold] claudia [OPTIONS] [PROMPT]
-
-[bold]🤖 Claude agent with OpenTelemetry instrumentation[/bold]
-
-Claudia is a thin wrapper around Claude CLI that adds telemetry.
-All Claude CLI flags are supported - just pass them through.
-
-[bold]Arguments:[/bold]
-  PROMPT              Task for Claude to perform. If not provided, starts
-                      interactive mode. The prompt should be the last argument.
-
-[bold]Telemetry Options:[/bold]
-  --logfire-token TEXT    Logfire API token (or set LOGFIRE_TOKEN env var)
-  --otel-endpoint TEXT    OTEL endpoint URL
-  --otel-headers TEXT     OTEL headers (format: key1=value1,key2=value2)
-  --claudia-debug         Enable claudia debug output
-
-[bold]Claude CLI Options (pass-through):[/bold]
-  Any Claude CLI flag can be used. For best results, use --flag=value format.
-  Examples:
-    --permission-mode=bypassPermissions
-    --model=opus
-    --debug=api,hooks
-  See 'claude --help' for full list
-
-[bold]Commands:[/bold]
-  version, --version, -v  Show version information
-  config, --config        Show current configuration
-
-[bold]Examples:[/bold]
-
-  # Single prompt (recommended: use = for flags)
-  claudia --permission-mode=bypassPermissions "fix this"
-
-  # With specific model and Logfire telemetry
-  claudia --model=opus --logfire-token YOUR_TOKEN "review my code"
-
-  # Interactive mode
-  claudia
-
-  # Multiple flags
-  claudia --model=opus --debug=api "analyze my code"
-
-[bold]Note:[/bold] For flags that take values, the --flag=value format is recommended
-to avoid ambiguity with the prompt argument.
-    """)
+        raise typer.Exit
 
 
 def show_config() -> None:
@@ -317,12 +135,147 @@ def show_startup_banner(extra_args: dict[str, str | None]) -> None:
     console.print()
 
 
-def main() -> None:
-    """Main entry point."""
-    prompt, extra_args, claudia_debug = parse_args()
+def parse_extra_args(ctx: typer.Context) -> dict[str, str | None]:
+    """
+    Parse extra arguments from context into dict format for Claude SDK.
+
+    Converts Click's list of extra args (e.g., ['--model', 'opus', '--debug'])
+    into dict format (e.g., {'model': 'opus', 'debug': None}).
+    """
+    extra_args = {}
+    args = list(ctx.args)  # Get extra args from context
+    i = 0
+
+    while i < len(args):
+        arg = args[i]
+
+        if not arg.startswith("-"):
+            # Standalone value - shouldn't happen if prompt was removed correctly
+            i += 1
+            continue
+
+        # Handle --flag or -f
+        if "=" in arg:
+            # --flag=value or -f=value format
+            flag_part, value_part = arg.split("=", 1)
+            flag_name = flag_part.lstrip("-")
+            extra_args[flag_name] = value_part
+            i += 1
+        else:
+            # --flag value or --flag (boolean) format
+            flag_name = arg.lstrip("-")
+
+            # Check if next arg is a value (doesn't start with -)
+            if i + 1 < len(args) and not args[i + 1].startswith("-"):
+                extra_args[flag_name] = args[i + 1]
+                i += 2
+            else:
+                # Boolean flag
+                extra_args[flag_name] = None
+                i += 1
+
+    return extra_args
+
+
+@app.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+    help="""
+    [bold]🤖 Claude agent with OpenTelemetry instrumentation[/bold]
+
+    Claudia is a thin wrapper around Claude CLI that adds telemetry.
+    All Claude CLI flags are supported - just pass them through.
+
+    [bold]Examples:[/bold]
+
+      # Single prompt (recommended: use = for flags)
+      claudia --permission-mode=bypassPermissions "fix this"
+
+      # With specific model and Logfire telemetry
+      claudia --model=opus --logfire-token YOUR_TOKEN "review my code"
+
+      # Interactive mode
+      claudia
+
+      # Multiple flags
+      claudia --model=opus --debug=api "analyze my code"
+
+    [bold]Note:[/bold] For flags that take values, the --flag=value format
+    is recommended to avoid ambiguity with the prompt argument.
+    """,
+)
+def main(
+    ctx: typer.Context,
+    prompt: Annotated[
+        str | None,
+        typer.Argument(
+            help="Task for Claude to perform. If not provided, starts interactive mode."
+        ),
+    ] = None,
+    logfire_token: Annotated[
+        str | None,
+        typer.Option(
+            "--logfire-token",
+            help="Logfire API token (or set LOGFIRE_TOKEN env var)",
+            envvar="LOGFIRE_TOKEN",
+        ),
+    ] = None,
+    otel_endpoint: Annotated[
+        str | None,
+        typer.Option(
+            "--otel-endpoint",
+            help="OTEL endpoint URL",
+            envvar="OTEL_EXPORTER_OTLP_ENDPOINT",
+        ),
+    ] = None,
+    otel_headers: Annotated[
+        str | None,
+        typer.Option(
+            "--otel-headers",
+            help="OTEL headers (format: key1=value1,key2=value2)",
+            envvar="OTEL_EXPORTER_OTLP_HEADERS",
+        ),
+    ] = None,
+    claudia_debug: Annotated[
+        bool, typer.Option("--claudia-debug", help="Enable claudia debug output")
+    ] = False,
+    version: Annotated[
+        bool | None,
+        typer.Option(
+            "--version",
+            "-v",
+            callback=version_callback,
+            is_eager=True,
+            help="Show version and exit",
+        ),
+    ] = None,
+    config: Annotated[
+        bool | None,
+        typer.Option(
+            "--config",
+            callback=config_callback,
+            is_eager=True,
+            help="Show configuration and exit",
+        ),
+    ] = None,
+) -> None:
+    """Main CLI entry point."""
+    # Set telemetry env vars
+    if logfire_token:
+        os.environ["LOGFIRE_TOKEN"] = logfire_token
+    if otel_endpoint:
+        os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = otel_endpoint
+    if otel_headers:
+        os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = otel_headers
+    if claudia_debug:
+        os.environ["CLAUDE_TELEMETRY_DEBUG"] = "1"
+        configure_logger(debug=True)
+
+    # Parse extra args (Claude CLI flags)
+    extra_args = parse_extra_args(ctx)
 
     if claudia_debug:
         console.print(f"[dim]Debug: extra_args = {extra_args}[/dim]")
+        console.print(f"[dim]Debug: prompt = {prompt}[/dim]")
 
     # Determine mode
     use_interactive = prompt is None
@@ -353,4 +306,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    app()
