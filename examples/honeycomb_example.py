@@ -54,7 +54,6 @@ async def main():
         prompt="Create a simple Python function to calculate fibonacci numbers",
         system_prompt="You are a helpful coding assistant.",
         allowed_tools=["Write"],
-        use_mcp=False,
         tracer_provider=tracer_provider,
     )
 

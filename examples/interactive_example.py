@@ -22,10 +22,8 @@ async def main():
     print("Type 'exit', 'quit', or press Ctrl+C to end the session\n")
 
     await run_agent_interactive(
-        initial_prompt="Hello! I'd like help with some coding tasks.",
         system_prompt="You are a helpful coding assistant. Be concise but thorough.",
         allowed_tools=["Read", "Write", "Bash"],
-        use_mcp=False,
     )
 
     print("\n✅ Session ended. Check your telemetry backend for the full conversation!")

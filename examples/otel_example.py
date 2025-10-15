@@ -53,7 +53,6 @@ async def main():
         prompt="What is 15 * 37? Show your calculation.",
         system_prompt="You are a helpful math assistant.",
         allowed_tools=["Bash"],
-        use_mcp=False,
         tracer_provider=tracer_provider,
     )
 

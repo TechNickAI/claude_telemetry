@@ -25,7 +25,6 @@ async def main():
         prompt="List the Python files in the current directory and summarize them",
         system_prompt="You are a helpful coding assistant.",
         allowed_tools=["Bash", "Read"],
-        use_mcp=False,  # Disable MCP for this simple example
     )
 
     print("\n✅ Check your Logfire dashboard to see the telemetry!")
