@@ -73,15 +73,13 @@ class TelemetryHooks:
 
     async def on_pre_tool_use(
         self,
-        tool_name: str,
-        tool_input: dict[str, Any],
+        input_data: dict[str, Any],
+        tool_use_id: str | None,
         ctx: Any,
     ) -> dict[str, Any]:
-        """
-        Hook called before tool execution.
+        """Hook called before tool execution."""
+        tool_name = input_data["tool_name"]
 
-        Opens a child span for the tool.
-        """
         if not self.session_span:
             msg = "No active session span"
             raise RuntimeError(msg)
@@ -108,26 +106,21 @@ class TelemetryHooks:
 
     async def on_post_tool_use(
         self,
-        tool_name: str,
-        tool_output: Any,
+        input_data: dict[str, Any],
+        tool_use_id: str | None,
         ctx: Any,
-        tool_id: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Hook called after tool execution.
+        """Hook called after tool execution."""
+        tool_name = input_data["tool_name"]
 
-        Closes the tool span and logs output.
-        """
-        # Find and end tool span
-        span = self.tool_spans.get(tool_id) if tool_id else None
-
-        if not span:
-            # Find by name
-            for tid, s in reversed(list(self.tool_spans.items())):
-                if tid.startswith(f"{tool_name}_"):
-                    span = s
-                    tool_id = tid
-                    break
+        # Find and end tool span - use most recent for this tool name
+        span = None
+        tool_id = None
+        for tid, s in reversed(list(self.tool_spans.items())):
+            if tid.startswith(f"{tool_name}_"):
+                span = s
+                tool_id = tid
+                break
 
         if span:
             span.add_event("Tool completed")
