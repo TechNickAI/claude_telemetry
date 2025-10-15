@@ -228,7 +228,12 @@ async def run_agent_interactive(  # noqa: PLR0915
 
                     except Exception as e:
                         logger.exception(f"Error during prompt execution: {e}")
-                        raise
+                        console.print(
+                            f"[bold red]Error:[/bold red] {e}\n"
+                            "[yellow]Continuing session...[/yellow]"
+                        )
+                        # Continue the interactive session instead of ending it
+                        continue
 
                 except KeyboardInterrupt:
                     ctrl_c_count += 1
