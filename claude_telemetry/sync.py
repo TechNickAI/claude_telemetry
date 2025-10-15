@@ -10,7 +10,7 @@ from claude_telemetry.runner import run_agent_interactive, run_agent_with_teleme
 def run_agent_with_telemetry_sync(
     prompt: str,
     system_prompt: str | None = None,
-    model: str = "claude-3-5-sonnet-20241022",
+    model: str | None = None,
     allowed_tools: list[str] | None = None,
     tracer_provider: TracerProvider | None = None,
 ) -> None:
@@ -53,7 +53,7 @@ def run_agent_with_telemetry_sync(
 
 def run_agent_interactive_sync(
     system_prompt: str | None = None,
-    model: str = "claude-3-5-sonnet-20241022",
+    model: str | None = None,
     allowed_tools: list[str] | None = None,
     tracer_provider: TracerProvider | None = None,
 ) -> None:
