@@ -135,12 +135,27 @@ class TelemetryHooks:
                 break
 
         if span:
-            # Add response as event (truncate if too long)
+            # Add response as span attributes for visibility in Logfire
             if tool_response is not None:
                 response_str = str(tool_response)
-                if len(response_str) > 500:
-                    response_str = response_str[:500] + "..."
-                span.add_event("Tool response", {"response": response_str})
+
+                # Set full response as attribute (no truncation - let Logfire handle it)
+                span.set_attribute("tool.response", response_str)
+
+                # Also check for errors in response
+                if isinstance(tool_response, dict):
+                    if "error" in tool_response:
+                        span.set_attribute("tool.error", str(tool_response["error"]))
+                    if "isError" in tool_response and tool_response["isError"]:
+                        span.set_attribute("tool.is_error", True)
+
+                # Add as event too for timeline view
+                if len(response_str) > 1000:
+                    span.add_event(
+                        "Tool response", {"response": response_str[:1000] + "..."}
+                    )
+                else:
+                    span.add_event("Tool response", {"response": response_str})
 
             span.end()
             if tool_id:

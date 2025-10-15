@@ -70,31 +70,33 @@ async def run_agent_with_telemetry(
         options.model = model
 
     # Use async context manager for proper resource handling
-    async with ClaudeSDKClient(options=options) as client:
-        # Send the query
-        await client.query(prompt=prompt)
+    try:
+        async with ClaudeSDKClient(options=options) as client:
+            # Send the query
+            await client.query(prompt=prompt)
 
-        # Receive and process responses
-        response_text = ""
-        async for message in client.receive_response():
-            # Handle different message types
-            if hasattr(message, "content"):
-                # Extract text from content (could be a list of TextBlocks)
-                if isinstance(message.content, list):
-                    for block in message.content:
-                        if hasattr(block, "text"):
-                            response_text += block.text
-                            # Output to console for user
-                            console = Console()
-                            console.print(block.text, end="")
-                elif isinstance(message.content, str):
-                    response_text = message.content
-                    # Output to console for user
-                    console = Console()
-                    console.print(message.content, end="")
-
-    # Complete telemetry session after client is closed
-    hooks.complete_session()
+            # Receive and process responses
+            response_text = ""
+            async for message in client.receive_response():
+                # Handle different message types
+                if hasattr(message, "content"):
+                    # Extract text from content (could be a list of TextBlocks)
+                    if isinstance(message.content, list):
+                        for block in message.content:
+                            if hasattr(block, "text"):
+                                response_text += block.text
+                                # Output to console for user
+                                console = Console()
+                                console.print(block.text, end="")
+                    elif isinstance(message.content, str):
+                        response_text = message.content
+                        # Output to console for user
+                        console = Console()
+                        console.print(message.content, end="")
+    finally:
+        # Always complete telemetry session, even on error
+        if hooks.session_span:
+            hooks.complete_session()
 
 
 async def run_agent_interactive(  # noqa: PLR0915
