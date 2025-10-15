@@ -1,28 +1,12 @@
 """Claude SDK hooks for telemetry capture."""
 
-import json
 import time
-from contextvars import ContextVar
 from typing import Any
 
 from opentelemetry import trace
 
 from claude_telemetry.helpers.logger import logger
-from claude_telemetry.logfire_adapter import (
-    create_tool_span_for_logfire,
-    format_for_logfire_llm,
-    get_logfire,
-)
-from claude_telemetry.telemetry import safe_span_operation
-
-# Context variables to track spans across async boundaries
-current_session_span: ContextVar[Any | None] = ContextVar("session_span", default=None)
-current_tool_spans: ContextVar[dict[str, Any] | None] = ContextVar(
-    "tool_spans", default=None
-)
-session_metrics: ContextVar[dict[str, Any] | None] = ContextVar(
-    "session_metrics", default=None
-)
+from claude_telemetry.logfire_adapter import get_logfire
 
 
 class TelemetryHooks:
@@ -31,26 +15,17 @@ class TelemetryHooks:
     def __init__(self, tracer_name: str = "claude-telemetry"):
         """Initialize hooks with a tracer."""
         self.tracer = trace.get_tracer(tracer_name)
-        self.start_time = None
+        self.session_span = None
+        self.tool_spans = {}
+        self.metrics = {}
         self.messages = []
         self.tools_used = []
-        self.is_logfire = self._detect_logfire()
 
-    def _detect_logfire(self) -> bool:
-        """Check if Logfire is configured."""
-        try:
-            import logfire  # noqa: F401, PLC0415
-
-            return trace.get_tracer_provider() is not None
-        except ImportError:
-            return False
-
-    @safe_span_operation
     async def on_user_prompt_submit(
         self,
         input_data: dict[str, Any],
         tool_use_id: str | None,
-        context: Any,
+        ctx: Any,
     ) -> dict[str, Any]:
         """
         Hook called when user submits a prompt.
@@ -58,96 +33,84 @@ class TelemetryHooks:
         Opens the parent span and logs the initial prompt.
         """
         # Extract prompt from input
-        prompt = input_data.get("text", "")
-        model = context.options.model if hasattr(context, "options") else "unknown"
+        prompt = input_data["prompt"]
+        model = ctx.get("options", {}).get("model", "claude-sonnet-4-20250514")
 
-        # Initialize session metrics
-        metrics = {
+        # Initialize metrics
+        self.metrics = {
             "prompt": prompt,
             "model": model,
             "input_tokens": 0,
             "output_tokens": 0,
-            "total_tokens": 0,
             "tools_used": 0,
             "turns": 0,
             "start_time": time.time(),
         }
-        session_metrics.set(metrics)
 
-        # Start parent span with better title
-        # For Logfire, use a descriptive title, not the truncated prompt
-        span_title = "Claude Agent Session"
-        span = self.tracer.start_span(span_title)
-        current_session_span.set(span)
+        # Create span title with prompt preview
+        prompt_preview = prompt[:60] + "..." if len(prompt) > 60 else prompt
+        span_title = f"🤖 {prompt_preview}"
 
-        # Set initial attributes
-        span.set_attribute("prompt", prompt)
-        span.set_attribute("model", model)
+        # Start session span
+        self.session_span = self.tracer.start_span(
+            span_title,
+            attributes={
+                "prompt": prompt,
+                "model": model,
+                "session_id": input_data["session_id"],
+            },
+        )
 
         # Add user prompt event
-        span.add_event("👤 User prompt submitted", {"prompt": prompt})
+        self.session_span.add_event("👤 User prompt submitted", {"prompt": prompt})
 
-        # Store message for Logfire formatting
+        # Store message
         self.messages.append({"role": "user", "content": prompt})
 
-        # Log prompt submission
-        logger.debug(
-            f"🎯 Hook fired: on_user_prompt_submit | prompt length: {len(prompt)}"
-        )
+        logger.debug(f"🎯 Span created: {span_title}")
 
         return {}
 
-    @safe_span_operation
     async def on_pre_tool_use(
         self,
         tool_name: str,
         tool_input: dict[str, Any],
-        context: Any,
+        ctx: Any,
     ) -> dict[str, Any]:
         """
         Hook called before tool execution.
 
         Opens a child span for the tool.
         """
-        parent_span = current_session_span.get()
-        if not parent_span:
-            return {}
+        if not self.session_span:
+            msg = "No active session span"
+            raise RuntimeError(msg)
 
-        # Create tool span
-        if self.is_logfire:
-            span = create_tool_span_for_logfire(self.tracer, tool_name, tool_input)
-        else:
-            span = self.tracer.start_span(f"tool.{tool_name}")
-            span.set_attribute("tool.name", tool_name)
-            # Add tool inputs as JSON string for non-Logfire
-            span.set_attribute("tool.input", json.dumps(tool_input))
+        # Create tool span as child
+        with trace.use_span(self.session_span, end_on_exit=False):
+            tool_span = self.tracer.start_span(
+                f"🔧 {tool_name}",
+                attributes={"tool.name": tool_name},
+            )
 
-        # Store span for post-tool hook
-        tool_spans = current_tool_spans.get() or {}
+        # Store span
         tool_id = f"{tool_name}_{time.time()}"
-        tool_spans[tool_id] = span
-        current_tool_spans.set(tool_spans)
+        self.tool_spans[tool_id] = tool_span
 
-        # Track tool usage
+        # Track usage
         self.tools_used.append(tool_name)
-        metrics = session_metrics.get()
-        if metrics:
-            metrics["tools_used"] += 1
+        self.metrics["tools_used"] += 1
 
-        # Log tool call
-        logger.debug(f"Calling tool: {tool_name}")
-
-        # Add event to parent span
-        parent_span.add_event(f"Tool call started: {tool_name}", {"tool": tool_name})
+        # Add event to parent
+        self.session_span.add_event(f"Tool started: {tool_name}")
 
         return {"tool_id": tool_id}
 
-    @safe_span_operation
     async def on_post_tool_use(
         self,
         tool_name: str,
         tool_output: Any,
-        context: Any,
+        ctx: Any,
         tool_id: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -155,165 +118,105 @@ class TelemetryHooks:
 
         Closes the tool span and logs output.
         """
-        # Get tool span
-        tool_spans = current_tool_spans.get() or {}
+        # Find and end tool span
+        span = self.tool_spans.get(tool_id) if tool_id else None
 
-        # Find the span (try with tool_id first, then search by name)
-        span = None
-        if tool_id and tool_id in tool_spans:
-            span = tool_spans[tool_id]
-        else:
-            # Find most recent span for this tool
-            for tid, s in reversed(list(tool_spans.items())):
+        if not span:
+            # Find by name
+            for tid, s in reversed(list(self.tool_spans.items())):
                 if tid.startswith(f"{tool_name}_"):
                     span = s
                     tool_id = tid
                     break
 
         if span:
-            # Add output attribute
-            output_str = (
-                json.dumps(tool_output)
-                if isinstance(tool_output, (dict, list))
-                else str(tool_output)
-            )
-            # Truncate very long outputs
-            if len(output_str) > 1000:
-                output_str = output_str[:1000] + "..."
-            span.set_attribute("tool.output", output_str)
-
-            # End the span
+            span.add_event("Tool completed")
             span.end()
-
-            # Remove from active spans
             if tool_id:
-                del tool_spans[tool_id]
-                current_tool_spans.set(tool_spans)
+                del self.tool_spans[tool_id]
 
-        # Log tool completion
-        logger.debug(f"Tool completed: {tool_name}")
-
-        # Add event to parent span
-        parent_span = current_session_span.get()
-        if parent_span:
-            parent_span.add_event(f"Tool completed: {tool_name}")
+        if self.session_span:
+            self.session_span.add_event(f"Tool completed: {tool_name}")
 
         return {}
 
-    @safe_span_operation
     async def on_message_complete(
         self,
         message: Any,
-        context: Any,
+        ctx: Any,
     ) -> dict[str, Any]:
         """
         Hook called when assistant message is complete.
 
         Updates metrics with token counts.
         """
-        # Extract token usage if available
+        # Extract token usage
         if hasattr(message, "usage"):
-            metrics = session_metrics.get()
-            if metrics:
-                input_tokens = getattr(message.usage, "input_tokens", 0)
-                output_tokens = getattr(message.usage, "output_tokens", 0)
+            input_tokens = getattr(message.usage, "input_tokens", 0)
+            output_tokens = getattr(message.usage, "output_tokens", 0)
 
-                metrics["input_tokens"] += input_tokens
-                metrics["output_tokens"] += output_tokens
-                metrics["total_tokens"] = (
-                    metrics["input_tokens"] + metrics["output_tokens"]
+            self.metrics["input_tokens"] += input_tokens
+            self.metrics["output_tokens"] += output_tokens
+            self.metrics["turns"] += 1
+
+            # Update span
+            if self.session_span:
+                self.session_span.set_attribute(
+                    "gen_ai.usage.input_tokens", self.metrics["input_tokens"]
                 )
-                metrics["turns"] += 1
+                self.session_span.set_attribute(
+                    "gen_ai.usage.output_tokens", self.metrics["output_tokens"]
+                )
+                self.session_span.set_attribute("turns", self.metrics["turns"])
 
-                # Update parent span
-                span = current_session_span.get()
-                if span:
-                    span.set_attribute("input_tokens", metrics["input_tokens"])
-                    span.set_attribute("output_tokens", metrics["output_tokens"])
-                    span.set_attribute("total_tokens", metrics["total_tokens"])
-                    span.set_attribute("turns", metrics["turns"])
-
-        # Store assistant message for Logfire
+        # Store message
         if hasattr(message, "content"):
             self.messages.append({"role": "assistant", "content": message.content})
 
         return {}
 
-    @safe_span_operation
     def complete_session(self) -> None:
-        """
-        Complete the telemetry session.
+        """Complete and flush the telemetry session."""
+        if not self.session_span:
+            msg = "No active session span"
+            raise RuntimeError(msg)
 
-        Closes the parent span with final metrics.
-        """
-        logger.debug("🎯 complete_session() called")
-        span = current_session_span.get()
-        if not span:
-            logger.warning("⚠️  No active span to complete!")
-            return
+        # Set final attributes
+        self.session_span.set_attribute("gen_ai.request.model", self.metrics["model"])
+        self.session_span.set_attribute("gen_ai.response.model", self.metrics["model"])
+        self.session_span.set_attribute("tools_used", self.metrics["tools_used"])
 
-        logger.debug(f"🎯 Found span to complete: {span}")
-
-        metrics = session_metrics.get()
-        if metrics:
-            # Get metrics
-            model = metrics.get("model", "unknown")
-            input_tokens = metrics.get("input_tokens", 0)
-            output_tokens = metrics.get("output_tokens", 0)
-
-            # Set final attributes
-            span.set_attribute("tools_used", metrics.get("tools_used", 0))
-
-            # Format span for Logfire if configured
-            if self.is_logfire:
-                format_for_logfire_llm(
-                    span,
-                    model=model,
-                    messages=self.messages,
-                    response=self.messages[-1]["content"]
-                    if self.messages and self.messages[-1]["role"] == "assistant"
-                    else None,
-                    tools_used=self.tools_used,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                    cost_usd=None,  # Let the API provide cost if available
-                )
-
-            # Add completion event
-            span.add_event("🎉 Agent completed")
-
-            # Log final metrics in a single clean line
-            duration = time.time() - metrics.get("start_time", time.time())
-            logger.info(
-                f"✅ Session completed | {input_tokens} in, {output_tokens} out | "
-                f"{metrics.get('tools_used', 0)} tools | {duration:.1f}s"
+        if self.tools_used:
+            self.session_span.set_attribute(
+                "tool_names", ",".join(set(self.tools_used))
             )
 
-        # End the span
-        logger.debug(f"🎯 Ending span: {span}")
-        span.end()
-        logger.debug("✅ Span ended successfully")
+        # Add completion event
+        self.session_span.add_event("🎉 Completed")
 
-        # Force flush to ensure spans are sent immediately
+        # End span
+        self.session_span.end()
+
+        # Flush
         logfire = get_logfire()
         if logfire:
-            logger.debug("🎯 Flushing Logfire spans")
             logfire.force_flush()
-            logger.debug("✅ Logfire flushed")
         else:
-            # For non-Logfire backends, flush the tracer provider
-            logger.debug("🎯 Flushing OTEL tracer provider")
             tracer_provider = trace.get_tracer_provider()
             if hasattr(tracer_provider, "force_flush"):
                 tracer_provider.force_flush()
-                logger.debug("✅ Tracer provider flushed")
 
-        # Clear context
-        current_session_span.set(None)
-        session_metrics.set(None)
-        current_tool_spans.set(None)
+        # Log summary
+        duration = time.time() - self.metrics["start_time"]
+        logger.info(
+            f"✅ Session completed | {self.metrics['input_tokens']} in, "
+            f"{self.metrics['output_tokens']} out | "
+            f"{self.metrics['tools_used']} tools | {duration:.1f}s"
+        )
 
-        # Reset state
+        # Reset
+        self.session_span = None
+        self.tool_spans = {}
+        self.metrics = {}
         self.messages = []
         self.tools_used = []
-        logger.debug("🎯 Session cleanup complete")
