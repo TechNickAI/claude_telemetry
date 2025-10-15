@@ -44,6 +44,7 @@ dev = [
 
 [project.scripts]
 claudia = "claude_telemetry.cli:app"
+claude-telemetry = "claude_telemetry.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/TechNickAI/claude_telemetry"

@@ -101,7 +101,8 @@ async def run_agent_with_telemetry(
     # Create agent options with hooks
     # Note: Don't pass mcp_servers - let Claude CLI use its own config
     # IMPORTANT: Must explicitly set setting_sources to load user/project/local settings
-    # SDK bug: passes --setting-sources="" when None, which blocks all settings
+    # SDK defaults to isolated environment (no settings) when None.
+    # We want CLI-like behavior, so explicitly request all sources.
     options = ClaudeAgentOptions(
         system_prompt=system_prompt,
         allowed_tools=allowed_tools,
@@ -201,7 +202,8 @@ async def run_agent_interactive(  # noqa: PLR0915
     # Create options with hooks
     # Note: Don't pass mcp_servers - let Claude CLI use its own config
     # IMPORTANT: Must explicitly set setting_sources to load user/project/local settings
-    # SDK bug: passes --setting-sources="" when None, which blocks all settings
+    # SDK defaults to isolated environment (no settings) when None.
+    # We want CLI-like behavior, so explicitly request all sources.
     options = ClaudeAgentOptions(
         system_prompt=system_prompt,
         allowed_tools=allowed_tools,
