@@ -1,8 +1,8 @@
 """Claude SDK hooks for telemetry capture."""
 
+from typing import Any
 import json
 import time
-from typing import Any
 
 from opentelemetry import trace
 
@@ -10,17 +10,36 @@ from claude_telemetry.helpers.logger import logger
 from claude_telemetry.logfire_adapter import get_logfire
 
 
+def _truncate_for_display(text: str, max_length: int = 200) -> str:
+    """Truncate text for display with ellipsis if needed."""
+    if len(text) <= max_length:
+        return text
+    return text[:max_length] + "..."
+
+
 class TelemetryHooks:
     """Hooks for capturing Claude agent telemetry."""
 
-    def __init__(self, tracer_name: str = "claude-telemetry"):
-        """Initialize hooks with a tracer."""
+    def __init__(
+        self,
+        tracer_name: str = "claude-telemetry",
+        create_tool_spans: bool = False,
+    ):
+        """
+        Initialize hooks with a tracer.
+
+        Args:
+            tracer_name: Name for the OpenTelemetry tracer
+            create_tool_spans: If True, create child spans for each tool.
+                              If False (default), add tool data as events only.
+        """
         self.tracer = trace.get_tracer(tracer_name)
         self.session_span = None
         self.tool_spans = {}
         self.metrics = {}
         self.messages = []
         self.tools_used = []
+        self.create_tool_spans = create_tool_spans
 
     async def on_user_prompt_submit(
         self,
@@ -91,40 +110,49 @@ class TelemetryHooks:
             msg = "No active session span"
             raise RuntimeError(msg)
 
-        # Create tool span as child
-        with trace.use_span(self.session_span, end_on_exit=False):
-            tool_span = self.tracer.start_span(
-                f"🔧 {tool_name}",
-                attributes={"tool.name": tool_name},
-            )
-
-        # Log tool input as event (with key parameters as attributes)
-        if tool_input:
-            # Add simplified input params as span attributes (strings only)
-            for key, val in tool_input.items():
-                if isinstance(val, str) and len(val) < 100:
-                    tool_span.set_attribute(f"tool.input.{key}", val)
-
-            # Add full input as event
-            tool_span.add_event("Tool input", {"input": str(tool_input)[:500]})
-
-        # Store span WITH THE ACTUAL tool_use_id from SDK
-        tool_id = tool_use_id or f"{tool_name}_{time.time()}"
-        self.tool_spans[tool_id] = tool_span
-
         # Track usage
         self.tools_used.append(tool_name)
         self.metrics["tools_used"] += 1
 
-        # Add event to parent
-        self.session_span.add_event(f"Tool started: {tool_name}")
-
         # Console logging
         logger.info(f"🔧 Tool: {tool_name}")
         if tool_input:
-            logger.debug(f"   Input: {tool_input}")
+            logger.info(f"   Input: {json.dumps(tool_input, indent=2)[:200]}")
 
-        return {"tool_id": tool_id}
+        if self.create_tool_spans:
+            # Create child span for tool
+            ctx_token = trace.set_span_in_context(self.session_span)
+            tool_span = self.tracer.start_span(
+                f"🔧 {tool_name}",
+                attributes={"tool.name": tool_name},
+                context=ctx_token,
+            )
+
+            # Add tool input as attributes
+            if tool_input:
+                for key, val in tool_input.items():
+                    if isinstance(val, str) and len(val) < 100:
+                        tool_span.set_attribute(f"tool.input.{key}", val)
+                tool_span.add_event("Tool input", {"input": str(tool_input)[:500]})
+
+            # Store span
+            tool_id = tool_use_id or f"{tool_name}_{time.time()}"
+            self.tool_spans[tool_id] = tool_span
+        else:
+            # Just add event to session span (no child span)
+            event_data = {"tool_name": tool_name}
+
+            # Add input fields as separate structured attributes
+            if tool_input:
+                for key, value in tool_input.items():
+                    # Add each input field as a separate attribute
+                    value_str = str(value)
+                    if len(value_str) < 2000:
+                        event_data[f"input.{key}"] = value_str
+
+            self.session_span.add_event(f"🔧 Tool started: {tool_name}", event_data)
+
+        return {}
 
     async def on_post_tool_use(  # noqa: PLR0915
         self,
@@ -136,14 +164,51 @@ class TelemetryHooks:
         tool_name = input_data["tool_name"]
         tool_response = input_data.get("tool_response")
 
-        # ALWAYS log that we're here
-        logger.info(f"📥 POST_TOOL: {tool_name}")
-        logger.info(f"   Keys: {list(input_data.keys())}")
-        logger.info(f"   Has response: {tool_response is not None}")
-        logger.info(f"   Response type: {type(tool_response)}")
-        logger.info(f"   Response: {str(tool_response)[:200]}")
+        # ALWAYS log that we're here with full debugging info
+        logger.info(f"✅ Tool completed: {tool_name}")
+        logger.info(f"   Response type: {type(tool_response).__name__}")
 
-        # Find span using tool_use_id first, then fall back to name matching
+        # Log response structure
+        if isinstance(tool_response, dict):
+            logger.info(f"   Response keys: {list(tool_response.keys())}")
+            # Show key fields
+            for key in ["stdout", "stderr", "error", "result", "content"]:
+                if key in tool_response:
+                    value = str(tool_response[key])[:200]
+                    suffix = "..." if len(str(tool_response[key])) > 200 else ""
+                    logger.info(f"   {key}: {value}{suffix}")
+        else:
+            logger.info(f"   Response: {str(tool_response)[:200]}")
+
+        if not self.create_tool_spans:
+            # No child spans - add response data as event to session span
+            event_data = {"tool_name": tool_name}
+
+            # Add response data
+            if tool_response is not None:
+                if isinstance(tool_response, dict):
+                    # Add key fields as separate event attributes
+                    for key, value in tool_response.items():
+                        value_str = str(value)
+                        if len(value_str) < 2000:
+                            event_data[f"response.{key}"] = value_str
+
+                    # Check for errors
+                    if "error" in tool_response:
+                        event_data["status"] = "error"
+                        event_data["error"] = str(tool_response["error"])[:500]
+                    elif tool_response.get("isError"):
+                        event_data["status"] = "error"
+                    else:
+                        event_data["status"] = "success"
+                else:
+                    event_data["response"] = str(tool_response)[:2000]
+                    event_data["status"] = "success"
+
+            self.session_span.add_event(f"✅ Tool completed: {tool_name}", event_data)
+            return {}
+
+        # Child span mode - find and close the span
         span = None
         span_id = None
 
@@ -161,8 +226,11 @@ class TelemetryHooks:
         if not span:
             logger.error(f"❌ No span found for tool: {tool_name} (id: {tool_use_id})")
             logger.error(f"   Active spans: {list(self.tool_spans.keys())}")
+            logger.error("   Span was never created or already closed!")
+            return {}
 
-        if span:
+        # Wrap span operations in try/finally to ALWAYS close the span
+        try:
             # Add response as span attributes for visibility in Logfire
             if tool_response is not None:
                 # Handle dict responses properly - extract key fields
@@ -178,26 +246,20 @@ class TelemetryHooks:
                     if "error" in tool_response:
                         error_msg = str(tool_response["error"])
                         span.set_attribute("tool.error", error_msg)
+                        span.set_attribute("tool.status", "error")
                         logger.error(f"❌ Tool error: {tool_name}")
                         logger.error(f"   Error: {error_msg}")
-                    if "isError" in tool_response and tool_response["isError"]:
+                    elif "isError" in tool_response and tool_response["isError"]:
                         span.set_attribute("tool.is_error", True)
+                        span.set_attribute("tool.status", "error")
                         logger.error(f"❌ Tool failed: {tool_name}")
-
-                    # Console logging - show structured response
-                    logger.info(f"✅ Tool response: {tool_name}")
-                    for key, value in tool_response.items():
-                        value_str = str(value)
-                        if len(value_str) > 200:
-                            logger.info(f"   {key}: {value_str[:200]}...")
-                        else:
-                            logger.info(f"   {key}: {value_str}")
+                    else:
+                        span.set_attribute("tool.status", "success")
                 else:
                     # Non-dict response - treat as string
                     response_str = str(tool_response)
-                    span.set_attribute("tool.response", response_str)
-                    logger.info(f"✅ Tool response: {tool_name}")
-                    logger.info(f"   Response: {response_str[:500]}")
+                    span.set_attribute("tool.response", response_str[:10000])
+                    span.set_attribute("tool.status", "success")
 
                 # Add full response as event for timeline view
                 try:
@@ -216,11 +278,19 @@ class TelemetryHooks:
                     span.add_event(
                         "Tool response", {"response": str(tool_response)[:2000]}
                     )
+        finally:
+            # ALWAYS end the span, even if there was an error
+            try:
+                span.end()
+                logger.debug(f"   Span closed for {tool_name}")
+            except Exception as e:
+                logger.error(f"   Error closing span for {tool_name}: {e}")
 
-            span.end()
-            if span_id:
+            # Remove from tracking dict
+            if span_id and span_id in self.tool_spans:
                 del self.tool_spans[span_id]
 
+        # Add event to session span
         if self.session_span:
             self.session_span.add_event(f"Tool completed: {tool_name}")
 
