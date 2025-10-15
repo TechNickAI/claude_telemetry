@@ -13,6 +13,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+## [0.2.1] - 2025-10-15
+
+### Fixed
+
+- **Critical**: Fixed CLI entry point to call `app()` instead of `main()`
+  - v0.2.0 had a bug where all commands entered interactive mode
+  - `--version`, `--print`, and other flags now work correctly
+  - Issue only affected installed package (not `python -m` usage)
+
 ## [0.2.0] - 2025-10-15
 
 ### Changed
