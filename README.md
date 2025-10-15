@@ -46,7 +46,6 @@ from claude_telemetry import run_agent_with_telemetry
 # Instead of using Claude SDK directly, use this wrapper:
 await run_agent_with_telemetry(
     prompt="Analyze my project and suggest improvements",
-    allowed_tools=["Read", "Write", "Bash"],
 )
 ```
 
@@ -98,8 +97,7 @@ from claude_telemetry import run_agent_with_telemetry
 
 await run_agent_with_telemetry(
     prompt="Analyze the latest logs and create a report",
-    system_prompt="You are a DevOps assistant.",
-    allowed_tools=["Read", "Write", "Bash"],
+    extra_args={"model": "sonnet"},
 )
 ```
 
@@ -116,7 +114,6 @@ from claude_telemetry import run_agent_with_telemetry
 # Your normal Claude Code workflow, now with observability
 await run_agent_with_telemetry(
     prompt="Refactor the authentication module",
-    allowed_tools=["Read", "Write"],
 )
 ```
 
@@ -144,7 +141,6 @@ trace.set_tracer_provider(provider)
 # Run with telemetry
 await run_agent_with_telemetry(
     prompt="Your task here",
-    system_prompt="Your instructions",
 )
 ```
 
