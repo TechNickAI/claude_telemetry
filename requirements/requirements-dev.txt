@@ -6,6 +6,7 @@
 pip-tools
 pre-commit
 ruff
+setuptools-scm  # For version generation from git tags
 
 # Optional goodies that improve the developer experience
 # pytest-sugar

@@ -1,0 +1,133 @@
+name: Release to PyPI
+
+on:
+  push:
+    tags:
+      - "v*.*.*" # Trigger on version tags like v0.1.0, v1.0.0, etc.
+
+permissions:
+  contents: write # For creating GitHub releases
+  id-token: write # For trusted publishing to PyPI
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # Full history for setuptools-scm
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build setuptools-scm wheel
+
+      - name: Build package
+        run: python -m build
+
+      - name: Store the distribution packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish-to-pypi:
+    name: Publish to PyPI
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/claude_telemetry
+
+    steps:
+      - name: Download all the dists
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Using trusted publishing (no API token needed if configured in PyPI)
+          # If you haven't set up trusted publishing, add your PyPI API token
+          # to repository secrets as PYPI_API_TOKEN and uncomment the line below:
+          # password: ${{ secrets.PYPI_API_TOKEN }}
+          verbose: true
+
+  github-release:
+    name: Create GitHub Release
+    needs: [publish-to-pypi]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Download all the dists
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog for version
+        id: changelog
+        run: |
+          # Extract the section for this version from CHANGELOG.md
+          VERSION="${{ steps.version.outputs.version }}"
+          if grep -q "## \\[$VERSION\\]" CHANGELOG.md; then
+            CHANGELOG=$(sed -n "/## \\[$VERSION\\]/,/## \\[/p" CHANGELOG.md | sed '$d')
+          else
+            CHANGELOG="See [CHANGELOG.md](CHANGELOG.md) for details."
+          fi
+          {
+            echo "changelog<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create '${{ github.ref_name }}' --title 'Release ${{
+          steps.version.outputs.version }}' --notes '${{
+          steps.changelog.outputs.changelog }}' dist/**
+
+  publish-to-testpypi:
+    name: Publish to TestPyPI (optional)
+    needs: [build]
+    runs-on: ubuntu-latest
+    if:
+      github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') &&
+      contains(github.ref, 'rc')
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/claude_telemetry
+
+    steps:
+      - name: Download all the dists
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # Add TestPyPI API token to repository secrets as TEST_PYPI_API_TOKEN
+          # password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          verbose: true
