@@ -7,7 +7,9 @@
     "logfire",
     "noqa",
     "pydantic",
+    "PYPI",
     "pytest",
+    "setuptools",
     "typer"
   ],
   "editor.formatOnSave": true,

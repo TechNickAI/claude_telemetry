@@ -200,7 +200,9 @@ class TestConsoleExporter:
 
     def test_configures_console_exporter(self, mocker):
         """Test that console exporter is configured for debug mode."""
-        from claude_telemetry.telemetry import _configure_console_exporter  # noqa: PLC0415
+        from claude_telemetry.telemetry import (  # noqa: PLC0415
+            _configure_console_exporter,
+        )
 
         mock_console_exporter = mocker.patch(
             "claude_telemetry.telemetry.ConsoleSpanExporter"
