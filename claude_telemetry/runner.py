@@ -192,11 +192,13 @@ async def run_agent_interactive(  # noqa: PLR0915
 
     # Use async context manager for the session
     async with ClaudeSDKClient(options=options) as client:
+        ctrl_c_count = 0
         try:
             while True:
                 try:
                     # Get user input
                     user_input = input("\n> ")
+                    ctrl_c_count = 0  # Reset on successful input
 
                     if user_input.lower() in ["exit", "quit", "bye"]:
                         break
@@ -243,7 +245,13 @@ async def run_agent_interactive(  # noqa: PLR0915
                         hooks.complete_session()
 
                 except KeyboardInterrupt:
-                    console.print("\n[yellow]Use 'exit' to quit or Ctrl+D[/yellow]")
+                    ctrl_c_count += 1
+                    if ctrl_c_count >= 2:
+                        console.print("\n[yellow]Interrupted by user[/yellow]")
+                        break
+                    console.print(
+                        "\n[yellow]Press Ctrl+C again to exit, or type 'exit'[/yellow]"
+                    )
                     continue
                 except EOFError:
                     break
