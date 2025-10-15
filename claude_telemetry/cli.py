@@ -280,6 +280,9 @@ def main(
         configure_logger(debug=True)
 
     # Parse arguments into prompt and Claude CLI flags
+    if claudia_debug:
+        console.print(f"[dim]Debug: raw args = {args}[/dim]")
+
     prompt, extra_args = parse_claude_args(args)
 
     if claudia_debug:
