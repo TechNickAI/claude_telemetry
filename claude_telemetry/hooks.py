@@ -204,24 +204,12 @@ class TelemetryHooks:
 
         if self.session_span:
             self.session_span.add_event(
-                "Context compaction triggered",
+                "Context compaction",
                 {
                     "trigger": trigger,
                     "has_custom_instructions": custom_instructions is not None,
                 },
             )
-
-        return {}
-
-    async def on_stop(
-        self,
-        input_data: dict[str, Any],
-        tool_use_id: str | None,
-        ctx: Any,
-    ) -> dict[str, Any]:
-        """Hook called when agent stops."""
-        if self.session_span:
-            self.session_span.add_event("Agent stopped")
 
         return {}
 

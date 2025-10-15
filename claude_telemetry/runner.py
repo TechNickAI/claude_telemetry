@@ -52,7 +52,6 @@ async def run_agent_with_telemetry(
             HookMatcher(matcher=None, hooks=[hooks.on_message_complete])
         ],
         "PreCompact": [HookMatcher(matcher=None, hooks=[hooks.on_pre_compact])],
-        "Stop": [HookMatcher(matcher=None, hooks=[hooks.on_stop])],
     }
 
     # Load MCP configuration if requested
@@ -170,7 +169,6 @@ async def run_agent_interactive(  # noqa: PLR0915
                 HookMatcher(matcher=None, hooks=[hooks.on_message_complete])
             ],
             "PreCompact": [HookMatcher(matcher=None, hooks=[hooks.on_pre_compact])],
-            "Stop": [HookMatcher(matcher=None, hooks=[hooks.on_stop])],
         },
     )
 
