@@ -138,4 +138,7 @@ docstring-code-format = true
 [tool.ruff.lint.per-file-ignores]
 "test_*.py" = ["PLR0915", "ARG001", "ARG005", "SLF001", "F841"]
 "**/conftest.py" = ["ARG001"]
-"examples/*.py" = ["T201", "INP001"]  # Allow prints and no __init__ requirement in examples
+"examples/*.py" = [
+    "T201",
+    "INP001",
+] # Allow prints and no __init__ requirement in examples
