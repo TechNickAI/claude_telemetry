@@ -71,7 +71,7 @@ class TestShowStartupBanner:
         """Test that model information is displayed."""
         mock_console = mocker.patch("claude_telemetry.cli.console")
 
-        show_startup_banner(model="claude-3-opus-20240229", tools=None)
+        show_startup_banner(extra_args={"model": "opus"})
 
         # Should have called print multiple times (banner + table)
         assert mock_console.print.call_count >= 2
@@ -82,7 +82,7 @@ class TestShowStartupBanner:
         mocker.patch("claude_telemetry.cli.Table")
         mocker.patch("claude_telemetry.cli.Panel")
 
-        show_startup_banner(model=None, tools=None)
+        show_startup_banner(extra_args={})
 
         # Verify console was used
         assert mock_console.print.called
@@ -93,7 +93,7 @@ class TestShowStartupBanner:
         mock_table = mocker.patch("claude_telemetry.cli.Table")
         mocker.patch("claude_telemetry.cli.Panel")
 
-        show_startup_banner(model=None, tools=["Read", "Write", "Bash"])
+        show_startup_banner(extra_args={"allowed-tools": "Read,Write,Bash"})
 
         # Verify table was created and used
         assert mock_table.called
@@ -106,11 +106,11 @@ class TestShowStartupBanner:
         mock_table_class.return_value = mock_table
         mocker.patch("claude_telemetry.cli.Panel")
 
-        show_startup_banner(model=None, tools=None)
+        show_startup_banner(extra_args={})
 
-        # Check that add_row was called with "All available"
+        # Check that add_row was called with MCP info
         add_row_calls = [call[0] for call in mock_table.add_row.call_args_list]
-        assert any("All available" in str(call) for call in add_row_calls)
+        assert any("MCP" in str(call) for call in add_row_calls)
 
     def test_shows_logfire_backend_when_token_present(self, mocker, monkeypatch):
         """Test that Logfire backend is shown when token is set."""
@@ -122,7 +122,7 @@ class TestShowStartupBanner:
         mock_table_class.return_value = mock_table
         mocker.patch("claude_telemetry.cli.Panel")
 
-        show_startup_banner(model=None, tools=None)
+        show_startup_banner(extra_args={})
 
         # Check that Logfire was mentioned
         add_row_calls = [str(call) for call in mock_table.add_row.call_args_list]
@@ -139,7 +139,7 @@ class TestShowStartupBanner:
         mock_table_class.return_value = mock_table
         mocker.patch("claude_telemetry.cli.Panel")
 
-        show_startup_banner(model=None, tools=None)
+        show_startup_banner(extra_args={})
 
         # Check that OpenTelemetry was mentioned
         add_row_calls = [str(call) for call in mock_table.add_row.call_args_list]
@@ -156,7 +156,7 @@ class TestShowStartupBanner:
         mock_table_class.return_value = mock_table
         mocker.patch("claude_telemetry.cli.Panel")
 
-        show_startup_banner(model=None, tools=None)
+        show_startup_banner(extra_args={})
 
         # Check that warning was shown
         add_row_calls = [str(call) for call in mock_table.add_row.call_args_list]

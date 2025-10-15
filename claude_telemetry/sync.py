@@ -9,9 +9,7 @@ from claude_telemetry.runner import run_agent_interactive, run_agent_with_teleme
 
 def run_agent_with_telemetry_sync(
     prompt: str,
-    system_prompt: str | None = None,
-    model: str | None = None,
-    allowed_tools: list[str] | None = None,
+    extra_args: dict[str, str | None] | None = None,
     tracer_provider: TracerProvider | None = None,
     debug: bool = False,
 ) -> None:
@@ -23,9 +21,8 @@ def run_agent_with_telemetry_sync(
 
     Args:
         prompt: Task for Claude to perform
-        system_prompt: System instructions for Claude
-        model: Claude model to use
-        allowed_tools: List of SDK tool names to allow
+        extra_args: Extra arguments to pass to Claude CLI
+            (e.g., {"permission-mode": "bypassPermissions"})
         tracer_provider: Optional custom tracer provider
         debug: Enable Claude CLI debug mode (shows MCP errors and more)
 
@@ -34,20 +31,20 @@ def run_agent_with_telemetry_sync(
 
     Note:
         MCP servers configured via `claude mcp add` will be automatically available.
+        Pass any Claude CLI flag via extra_args.
 
     Example:
         >>> from claude_telemetry import run_agent_with_telemetry_sync
         >>> run_agent_with_telemetry_sync(
-        ...     "Analyze my Python files", allowed_tools=["Read", "Glob"]
+        ...     "Analyze my Python files",
+        ...     extra_args={"permission-mode": "bypassPermissions"},
         ... )
     """
     # Use asyncio.run() for Python 3.10+
     asyncio.run(
         run_agent_with_telemetry(
             prompt=prompt,
-            system_prompt=system_prompt,
-            model=model,
-            allowed_tools=allowed_tools,
+            extra_args=extra_args,
             tracer_provider=tracer_provider,
             debug=debug,
         )
@@ -55,9 +52,7 @@ def run_agent_with_telemetry_sync(
 
 
 def run_agent_interactive_sync(
-    system_prompt: str | None = None,
-    model: str | None = None,
-    allowed_tools: list[str] | None = None,
+    extra_args: dict[str, str | None] | None = None,
     tracer_provider: TracerProvider | None = None,
     debug: bool = False,
 ) -> None:
@@ -65,9 +60,8 @@ def run_agent_interactive_sync(
     Synchronous wrapper for interactive mode.
 
     Args:
-        system_prompt: System instructions for Claude
-        model: Claude model to use
-        allowed_tools: List of SDK tool names to allow
+        extra_args: Extra arguments to pass to Claude CLI
+            (e.g., {"permission-mode": "bypassPermissions"})
         tracer_provider: Optional custom tracer provider
         debug: Enable Claude CLI debug mode (shows MCP errors and more)
 
@@ -76,17 +70,18 @@ def run_agent_interactive_sync(
 
     Note:
         MCP servers configured via `claude mcp add` will be automatically available.
+        Pass any Claude CLI flag via extra_args.
 
     Example:
         >>> from claude_telemetry import run_agent_interactive_sync
-        >>> run_agent_interactive_sync(allowed_tools=["Read", "Write", "Bash"])
+        >>> run_agent_interactive_sync(
+        ...     extra_args={"model": "opus", "permission-mode": "bypassPermissions"}
+        ... )
     """
 
     asyncio.run(
         run_agent_interactive(
-            system_prompt=system_prompt,
-            model=model,
-            allowed_tools=allowed_tools,
+            extra_args=extra_args,
             tracer_provider=tracer_provider,
             debug=debug,
         )

@@ -43,9 +43,7 @@ def extract_message_text(message) -> str:
 
 async def run_agent_with_telemetry(
     prompt: str,
-    system_prompt: str | None = None,
-    model: str | None = None,
-    allowed_tools: list[str] | None = None,
+    extra_args: dict[str, str | None] | None = None,
     tracer_provider: TracerProvider | None = None,
     debug: bool = False,
 ) -> None:
@@ -56,9 +54,8 @@ async def run_agent_with_telemetry(
 
     Args:
         prompt: Task for Claude to perform
-        system_prompt: System instructions for Claude
-        model: Claude model to use
-        allowed_tools: List of SDK tool names to allow (e.g., ["Read", "Write", "Bash"])
+        extra_args: Extra arguments to pass to Claude CLI
+            (e.g., {"permission-mode": "bypassPermissions"})
         tracer_provider: Optional custom tracer provider
         debug: Enable Claude CLI debug mode (shows MCP errors and more)
 
@@ -67,7 +64,10 @@ async def run_agent_with_telemetry(
 
     Note:
         MCP servers configured via `claude mcp add` will be automatically available.
+        Pass any Claude CLI flag via extra_args.
     """
+    if extra_args is None:
+        extra_args = {}
     # Configure telemetry
     configure_telemetry(tracer_provider)
 
@@ -87,10 +87,9 @@ async def run_agent_with_telemetry(
         "PreCompact": [HookMatcher(matcher=None, hooks=[hooks.on_pre_compact])],
     }
 
-    # Build extra CLI args
-    extra_args = {}
-    if debug:
-        extra_args["debug"] = None  # Flag with no value
+    # Add debug flag if requested
+    if debug and "debug" not in extra_args:
+        extra_args["debug"] = None
 
     # Callback for stderr output from Claude CLI
     def log_claude_stderr(line: str) -> None:
@@ -104,17 +103,11 @@ async def run_agent_with_telemetry(
     # SDK defaults to isolated environment (no settings) when None.
     # We want CLI-like behavior, so explicitly request all sources.
     options = ClaudeAgentOptions(
-        system_prompt=system_prompt,
-        allowed_tools=allowed_tools,
         hooks=hook_config,
         setting_sources=["user", "project", "local"],
         extra_args=extra_args,
         stderr=log_claude_stderr if debug else None,
     )
-
-    # Add model only if specified
-    if model:
-        options.model = model
 
     # Use async context manager for proper resource handling
     console = Console()
@@ -136,9 +129,7 @@ async def run_agent_with_telemetry(
 
 
 async def run_agent_interactive(  # noqa: PLR0915
-    system_prompt: str | None = None,
-    model: str | None = None,
-    allowed_tools: list[str] | None = None,
+    extra_args: dict[str, str | None] | None = None,
     tracer_provider: TracerProvider | None = None,
     debug: bool = False,
 ) -> None:
@@ -148,9 +139,8 @@ async def run_agent_interactive(  # noqa: PLR0915
     This function handles multiple prompts in a session with shared context.
 
     Args:
-        system_prompt: System instructions for Claude
-        model: Claude model to use
-        allowed_tools: List of SDK tool names to allow
+        extra_args: Extra arguments to pass to Claude CLI
+            (e.g., {"permission-mode": "bypassPermissions"})
         tracer_provider: Optional custom tracer provider
         debug: Enable Claude CLI debug mode (shows MCP errors and more)
 
@@ -159,23 +149,16 @@ async def run_agent_interactive(  # noqa: PLR0915
 
     Note:
         MCP servers configured via `claude mcp add` will be automatically available.
+        Pass any Claude CLI flag via extra_args.
     """
+    if extra_args is None:
+        extra_args = {}
     console = Console()
 
     # Configure telemetry once for the session
     configure_telemetry(tracer_provider)
 
-    # Welcome message
-    model_info = f"Model: {model}\n" if model else ""
-    console.print(
-        Panel.fit(
-            "[bold green]Claude Telemetry Interactive Mode[/bold green]\n"
-            f"{model_info}"
-            f"Tools: {', '.join(allowed_tools) if allowed_tools else 'None'}\n"
-            "Type 'exit' or Ctrl+D to quit",
-            title="🤖 Welcome",
-        )
-    )
+    # This banner is now handled by CLI layer
 
     # Interactive loop
     session_metrics = {
@@ -188,10 +171,9 @@ async def run_agent_interactive(  # noqa: PLR0915
     # Initialize hooks once for the session
     hooks = TelemetryHooks()
 
-    # Build extra CLI args
-    extra_args = {}
-    if debug:
-        extra_args["debug"] = None  # Flag with no value
+    # Add debug flag if requested
+    if debug and "debug" not in extra_args:
+        extra_args["debug"] = None
 
     # Callback for stderr output from Claude CLI
     def log_claude_stderr(line: str) -> None:
@@ -205,8 +187,6 @@ async def run_agent_interactive(  # noqa: PLR0915
     # SDK defaults to isolated environment (no settings) when None.
     # We want CLI-like behavior, so explicitly request all sources.
     options = ClaudeAgentOptions(
-        system_prompt=system_prompt,
-        allowed_tools=allowed_tools,
         setting_sources=["user", "project", "local"],
         extra_args=extra_args,
         stderr=log_claude_stderr if debug else None,
@@ -222,10 +202,6 @@ async def run_agent_interactive(  # noqa: PLR0915
             "PreCompact": [HookMatcher(matcher=None, hooks=[hooks.on_pre_compact])],
         },
     )
-
-    # Add model only if specified
-    if model:
-        options.model = model
 
     # Use async context manager for the session
     async with ClaudeSDKClient(options=options) as client:

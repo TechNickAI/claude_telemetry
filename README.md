@@ -285,23 +285,20 @@ format automatically.
 ```python
 async def run_agent_with_telemetry(
     prompt: str,
-    system_prompt: Optional[str] = None,
-    model: str = "claude-3-5-sonnet-20241022",
-    allowed_tools: Optional[List[str]] = None,
-    use_mcp: bool = True,
+    extra_args: Optional[dict[str, str | None]] = None,
     tracer_provider: Optional[TracerProvider] = None,
+    debug: bool = False,
 )
 ```
 
 **Parameters:**
 
 - `prompt` - Task for Claude
-- `system_prompt` - System instructions
-- `model` - Claude model (default: claude-3-5-sonnet-20241022)
-- `allowed_tools` - SDK tool names (e.g., `["Read", "Write", "Bash"]`)
-- `use_mcp` - Load MCP servers from `.mcp.json` (default: True)
+- `extra_args` - Dictionary of Claude CLI flags (e.g.,
+  `{"model": "opus", "permission-mode": "bypassPermissions"}`)
 - `tracer_provider` - Custom OTEL tracer provider (optional, auto-detected if not
   provided)
+- `debug` - Enable Claude CLI debug mode
 
 **Returns:**
 
@@ -317,9 +314,7 @@ from claude_telemetry import run_agent_with_telemetry
 async def main():
     await run_agent_with_telemetry(
         prompt="List Python files and create a summary",
-        system_prompt="You are a helpful coding assistant.",
-        allowed_tools=["Bash", "Glob", "Write"],
-        use_mcp=False,
+        extra_args={"model": "sonnet"},
     )
 
 asyncio.run(main())
@@ -470,7 +465,7 @@ span.set_attribute("model", "...")
 
 # Logfire LLM enhancement
 span.set_attribute("request_data", {
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "sonnet",
     "messages": [{"role": "user", "content": "..."}]
 })
 span.set_attribute("response_data", {
@@ -580,7 +575,7 @@ completion.
 **High costs showing in traces:**
 
 - This is valuable data! Use it to optimize your prompts
-- Consider using `claude-3-haiku` for cheaper operations
+- Consider using `haiku` model for cheaper operations
 - Review which tools are being called unnecessarily
 
 ## License
