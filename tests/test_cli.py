@@ -15,8 +15,10 @@ class TestHandleAgentError:
 
         error = KeyboardInterrupt()
 
-        handle_agent_error(error)
+        with pytest.raises(typer.Exit) as exc_info:
+            handle_agent_error(error)
 
+        assert exc_info.value.exit_code == 0
         mock_console.print.assert_called_once()
         call_args = mock_console.print.call_args[0][0]
         assert "Interrupted by user" in call_args
