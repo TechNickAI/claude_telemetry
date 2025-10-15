@@ -102,8 +102,8 @@ class TelemetryHooks:
             # Add full input as event
             tool_span.add_event("Tool input", {"input": str(tool_input)[:500]})
 
-        # Store span
-        tool_id = f"{tool_name}_{time.time()}"
+        # Store span WITH THE ACTUAL tool_use_id from SDK
+        tool_id = tool_use_id or f"{tool_name}_{time.time()}"
         self.tool_spans[tool_id] = tool_span
 
         # Track usage
@@ -112,6 +112,11 @@ class TelemetryHooks:
 
         # Add event to parent
         self.session_span.add_event(f"Tool started: {tool_name}")
+
+        # Console logging
+        logger.info(f"🔧 Tool: {tool_name}")
+        if tool_input:
+            logger.debug(f"   Input: {tool_input}")
 
         return {"tool_id": tool_id}
 
@@ -125,14 +130,31 @@ class TelemetryHooks:
         tool_name = input_data["tool_name"]
         tool_response = input_data.get("tool_response")
 
-        # Find and end tool span - use most recent for this tool name
+        # ALWAYS log that we're here
+        logger.info(f"📥 POST_TOOL: {tool_name}")
+        logger.info(f"   Keys: {list(input_data.keys())}")
+        logger.info(f"   Has response: {tool_response is not None}")
+        logger.info(f"   Response type: {type(tool_response)}")
+        logger.info(f"   Response: {str(tool_response)[:200]}")
+
+        # Find span using tool_use_id first, then fall back to name matching
         span = None
-        tool_id = None
-        for tid, s in reversed(list(self.tool_spans.items())):
-            if tid.startswith(f"{tool_name}_"):
-                span = s
-                tool_id = tid
-                break
+        span_id = None
+
+        if tool_use_id and tool_use_id in self.tool_spans:
+            span = self.tool_spans[tool_use_id]
+            span_id = tool_use_id
+        else:
+            # Fall back to name matching for most recent
+            for tid, s in reversed(list(self.tool_spans.items())):
+                if tid.startswith(f"{tool_name}_") or tid == tool_use_id:
+                    span = s
+                    span_id = tid
+                    break
+
+        if not span:
+            logger.error(f"❌ No span found for tool: {tool_name} (id: {tool_use_id})")
+            logger.error(f"   Active spans: {list(self.tool_spans.keys())}")
 
         if span:
             # Add response as span attributes for visibility in Logfire
@@ -142,12 +164,22 @@ class TelemetryHooks:
                 # Set full response as attribute (no truncation - let Logfire handle it)
                 span.set_attribute("tool.response", response_str)
 
+                # Console logging - ALWAYS show response
+                logger.info(f"✅ Tool response: {tool_name}")
+                logger.info(f"   Response: {response_str[:500]}")
+                if len(response_str) > 500:
+                    logger.debug(f"   Full response: {response_str}")
+
                 # Also check for errors in response
                 if isinstance(tool_response, dict):
                     if "error" in tool_response:
-                        span.set_attribute("tool.error", str(tool_response["error"]))
+                        error_msg = str(tool_response["error"])
+                        span.set_attribute("tool.error", error_msg)
+                        logger.error(f"❌ Tool error: {tool_name}")
+                        logger.error(f"   Error: {error_msg}")
                     if "isError" in tool_response and tool_response["isError"]:
                         span.set_attribute("tool.is_error", True)
+                        logger.error(f"❌ Tool failed: {tool_name}")
 
                 # Add as event too for timeline view
                 if len(response_str) > 1000:
@@ -158,8 +190,8 @@ class TelemetryHooks:
                     span.add_event("Tool response", {"response": response_str})
 
             span.end()
-            if tool_id:
-                del self.tool_spans[tool_id]
+            if span_id:
+                del self.tool_spans[span_id]
 
         if self.session_span:
             self.session_span.add_event(f"Tool completed: {tool_name}")
