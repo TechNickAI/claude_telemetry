@@ -4,6 +4,8 @@ These tests verify end-to-end behavior of the telemetry system.
 For unit tests, see test_hooks.py, test_telemetry_config.py, etc.
 """
 
+import contextlib
+
 import pytest
 
 from claude_telemetry.runner import run_agent_with_telemetry
@@ -55,11 +57,23 @@ class TestEndToEndTelemetry:
         """Test that sync wrapper properly calls async version."""
         monkeypatch.setenv("CLAUDE_TELEMETRY_DEBUG", "1")
 
+        # Create an AsyncMock to properly handle async function
         mock_run_async = mocker.patch(
             "claude_telemetry.sync.run_agent_with_telemetry",
-            return_value=mocker.MagicMock(),
+            new=mocker.AsyncMock(),
         )
-        mock_asyncio_run = mocker.patch("claude_telemetry.sync.asyncio.run")
+
+        # Mock asyncio.run to actually await the coroutine
+        # (avoids unawaited coroutine warning)
+        def mock_asyncio_run_impl(coro):
+            """Mock asyncio.run that properly handles coroutines."""
+            # Close the coroutine to avoid unawaited coroutine warning
+            with contextlib.suppress(AttributeError, RuntimeError):
+                coro.close()
+
+        mock_asyncio_run = mocker.patch(
+            "claude_telemetry.sync.asyncio.run", side_effect=mock_asyncio_run_impl
+        )
 
         run_agent_with_telemetry_sync(prompt="Test")
 
