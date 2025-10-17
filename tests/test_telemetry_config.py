@@ -57,10 +57,17 @@ class TestTelemetryConfiguration:
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://api.honeycomb.io")
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_HEADERS", "x-honeycomb-team=test_key")
 
+        # Import the actual function to get its spec
+        from claude_telemetry.telemetry import _configure_otel  # noqa: PLC0415
+
         mock_provider = mocker.MagicMock()
-        mock_configure_otel = mocker.patch(
+        # Use MagicMock explicitly with spec to avoid async mock warnings
+        mock_configure_otel = mocker.MagicMock(
+            spec=_configure_otel, return_value=mock_provider
+        )
+        mocker.patch(
             "claude_telemetry.telemetry._configure_otel",
-            return_value=mock_provider,
+            mock_configure_otel,
         )
 
         result = configure_telemetry()
