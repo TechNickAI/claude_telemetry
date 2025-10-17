@@ -215,7 +215,8 @@ class TestPostToolUse:
 
         call_args = hooks.session_span.add_event.call_args
         assert call_args[0][1]["status"] == "error"
-        assert "Permission denied" in call_args[0][1]["error"]
+        # Error info is now in response_summary instead of error field
+        assert "Permission denied" in call_args[0][1]["response_summary"]
 
     @pytest.mark.asyncio
     async def test_closes_tool_span_when_enabled(self, hooks, mocker, mock_span):
