@@ -46,7 +46,7 @@ async def run_agent_with_telemetry(
     extra_args: dict[str, str | None] | None = None,
     tracer_provider: TracerProvider | None = None,
     debug: bool = False,
-) -> None:
+) -> dict[str, str]:
     """
     Run a Claude agent with OpenTelemetry instrumentation.
 
@@ -60,7 +60,7 @@ async def run_agent_with_telemetry(
         debug: Enable Claude CLI debug mode (shows MCP errors and more)
 
     Returns:
-        None - prints Claude's responses and sends telemetry
+        Dict with "response" key containing Claude's response text
 
     Note:
         MCP servers configured via `claude mcp add` will be automatically available.
@@ -111,6 +111,7 @@ async def run_agent_with_telemetry(
 
     # Use async context manager for proper resource handling
     console = Console()
+    response_text = ""
     try:
         async with ClaudeSDKClient(options=options) as client:
             # Send the query
@@ -122,10 +123,13 @@ async def run_agent_with_telemetry(
                 text = extract_message_text(message)
                 if text:
                     console.print(text, end="")
+                    response_text += text
     finally:
         # Always complete telemetry session, even on error
         if hooks.session_span:
             hooks.complete_session()
+
+    return {"response": response_text}
 
 
 async def run_agent_interactive(  # noqa: PLR0915
