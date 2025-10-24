@@ -8,6 +8,7 @@ from opentelemetry import trace
 
 from claude_telemetry.helpers.logger import logger
 from claude_telemetry.logfire_adapter import get_logfire
+from claude_telemetry.sentry_adapter import get_sentry
 
 
 def _truncate_for_display(text: str, max_length: int = 200) -> str:
@@ -489,6 +490,7 @@ class TelemetryHooks:
                 "prompt": prompt,
                 "model": model,
                 "session_id": input_data["session_id"],
+                "gen_ai.system": "anthropic",  # LLM provider for Sentry
             },
         )
 
@@ -532,7 +534,10 @@ class TelemetryHooks:
             ctx_token = trace.set_span_in_context(self.session_span)
             tool_span = self.tracer.start_span(
                 f"🔧 {tool_title}",
-                attributes={"tool.name": tool_name},
+                attributes={
+                    "tool.name": tool_name,
+                    "gen_ai.operation.name": "execute_tool",  # For Sentry LLM UI
+                },
                 context=ctx_token,
             )
 
@@ -750,10 +755,14 @@ class TelemetryHooks:
         # End span
         self.session_span.end()
 
-        # Flush
+        # Flush telemetry to backend
         logfire = get_logfire()
+        sentry = get_sentry()
+
         if logfire:
             logfire.force_flush()
+        elif sentry:
+            sentry.flush()
         else:
             tracer_provider = trace.get_tracer_provider()
             if hasattr(tracer_provider, "force_flush"):
