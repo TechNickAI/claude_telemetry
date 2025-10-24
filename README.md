@@ -84,6 +84,9 @@ pip install claude_telemetry
 
 # Or with Logfire support for enhanced LLM telemetry
 pip install "claude_telemetry[logfire]"
+
+# Or with Sentry for LLM monitoring with error tracking
+pip install claude_telemetry sentry-sdk
 ```
 
 ### For Python Scripts
@@ -106,6 +109,9 @@ Same configuration for CLI and Python:
 ```bash
 # For Logfire (get token from logfire.pydantic.dev)
 export LOGFIRE_TOKEN="your-token"
+
+# For Sentry (get DSN from sentry.io)
+export SENTRY_DSN="https://your-key@sentry.io/project-id"
 
 # Or for any OTEL backend
 export OTEL_EXPORTER_OTLP_ENDPOINT="https://your-otel-endpoint.com"
@@ -234,7 +240,9 @@ claude.agent.run (parent span)
   └─ agent.completed (event)
 ```
 
-## Logfire Special Features
+## Backend-Specific Features
+
+### Logfire
 
 When using Logfire, the package enables LLM-specific UI features. Spans tagged with
 `LLM` show in Logfire's LLM UI with request/response formatted for token visualization
@@ -243,17 +251,49 @@ indicators (🤖 for agents, 🔧 for tools, ✅ for completion), proper nesting
 output, and readable span titles showing task descriptions instead of generic "Message
 with model X" text.
 
-This happens automatically when `LOGFIRE_TOKEN` is set. With other backends, you get
-standard OTEL spans.
+This happens automatically when `LOGFIRE_TOKEN` is set.
+
+### Sentry
+
+When using Sentry, the package integrates with Sentry's AI Monitoring features. Spans
+include `gen_ai.*` attributes that appear in Sentry's AI Performance dashboard. You get
+full LLM trace visualization showing token usage, costs, model performance, and tool
+execution alongside Sentry's error tracking and performance monitoring.
+
+Key features:
+
+- **AI Performance Dashboard**: View LLM metrics by model, operation, and pipeline
+- **Token Usage Tracking**: Monitor input/output tokens with cost analysis
+- **Error Context**: LLM errors include full trace context (prompt, model, tokens)
+- **Tool Execution Visibility**: See which tools were called and their results
+
+Set `SENTRY_DSN` and optionally configure:
+
+```bash
+export SENTRY_ENVIRONMENT="production"        # Environment name
+export SENTRY_TRACES_SAMPLE_RATE="1.0"        # Trace sampling (0.0-1.0)
+```
+
+View traces at: Sentry Dashboard → Performance → AI Monitoring
+
+With other backends, you get standard OTEL spans.
 
 ## Configuration
 
 ### Environment Variables
 
-**Logfire (easiest):**
+**Logfire:**
 
 ```bash
 export LOGFIRE_TOKEN="your_token"  # Get from logfire.pydantic.dev
+```
+
+**Sentry:**
+
+```bash
+export SENTRY_DSN="https://your-key@sentry.io/project-id"
+export SENTRY_ENVIRONMENT="production"           # Optional
+export SENTRY_TRACES_SAMPLE_RATE="1.0"          # Optional (0.0-1.0)
 ```
 
 **Any OTEL backend:**
@@ -420,12 +460,17 @@ works with any observability backend, doesn't lock users into specific vendors,
 integrates with existing infrastructure, and is future-proof as a CNCF project with wide
 adoption.
 
-### Why Special-Case Logfire?
+### Why Special-Case Logfire and Sentry?
 
-Logfire has LLM-specific UI features that require specific span formatting. When Logfire
-is detected, the package tags spans for LLM UI, formats request/response for token
-visualization, and uses Logfire's SDK for optimal integration. This is additive—standard
-OTEL still works, Logfire just gets enhanced features.
+Both Logfire and Sentry have LLM-specific UI features that benefit from specific span
+formatting. When detected:
+
+- **Logfire**: Uses Logfire's SDK for auto-configuration and LLM UI formatting
+- **Sentry**: Adds `gen_ai.*` attributes for AI Performance dashboard integration
+
+Both use OpenTelemetry under the hood, so the hook code stays backend-agnostic. The
+adapters just configure the provider and ensure proper attribute formatting for each
+platform's LLM UI features.
 
 ### Why Hooks Instead of Wrappers?
 
@@ -438,6 +483,7 @@ of concerns, and requires no monkey-patching.
 **Tested and working:**
 
 - Logfire (enhanced LLM features)
+- Sentry (AI monitoring with error tracking)
 - Honeycomb
 - Datadog
 - Grafana Cloud
@@ -507,10 +553,12 @@ claude_telemetry/
     hooks.py              # Telemetry hook implementations
     telemetry.py          # OTEL configuration and setup
     logfire_adapter.py    # Logfire-specific enhancements
+    sentry_adapter.py     # Sentry-specific configuration
     cli.py                # CLI entry point with pass-through arg parsing
     helpers/              # Logger and utilities
   examples/
     logfire_example.py    # Logfire usage
+    sentry_example.py     # Sentry LLM monitoring
     otel_example.py       # Generic OTEL usage
     honeycomb_example.py  # Honeycomb setup
   tests/

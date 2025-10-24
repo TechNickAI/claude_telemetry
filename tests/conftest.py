@@ -15,6 +15,9 @@ def reset_environment(monkeypatch):
     """
     # Clear telemetry-related env vars
     monkeypatch.delenv("LOGFIRE_TOKEN", raising=False)
+    monkeypatch.delenv("SENTRY_DSN", raising=False)
+    monkeypatch.delenv("SENTRY_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("SENTRY_TRACES_SAMPLE_RATE", raising=False)
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_HEADERS", raising=False)
     monkeypatch.delenv("CLAUDE_TELEMETRY_DEBUG", raising=False)
