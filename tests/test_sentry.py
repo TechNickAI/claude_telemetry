@@ -12,7 +12,6 @@ class TestConfigureSentry:
 
         mock_sentry = mocker.MagicMock()
         mock_sentry.init = mocker.MagicMock()
-        mocker.patch.dict("sys.modules", {"sentry_sdk": mock_sentry})
 
         mock_logging_integration = mocker.MagicMock()
         mock_span_processor = mocker.MagicMock()
@@ -20,6 +19,7 @@ class TestConfigureSentry:
             "sys.modules",
             {
                 "sentry_sdk": mock_sentry,
+                "sentry_sdk.integrations": mocker.MagicMock(),
                 "sentry_sdk.integrations.logging": mocker.MagicMock(
                     LoggingIntegration=mock_logging_integration
                 ),
@@ -52,7 +52,21 @@ class TestConfigureSentry:
         monkeypatch.delenv("SENTRY_DSN", raising=False)
 
         mock_sentry = mocker.MagicMock()
-        mocker.patch.dict("sys.modules", {"sentry_sdk": mock_sentry})
+        mock_logging_integration = mocker.MagicMock()
+        mock_span_processor = mocker.MagicMock()
+        mocker.patch.dict(
+            "sys.modules",
+            {
+                "sentry_sdk": mock_sentry,
+                "sentry_sdk.integrations": mocker.MagicMock(),
+                "sentry_sdk.integrations.logging": mocker.MagicMock(
+                    LoggingIntegration=mock_logging_integration
+                ),
+                "sentry_sdk.integrations.opentelemetry": mocker.MagicMock(
+                    SentrySpanProcessor=mock_span_processor
+                ),
+            },
+        )
 
         from claude_telemetry.sentry_adapter import configure_sentry  # noqa: PLC0415
 
@@ -73,6 +87,7 @@ class TestConfigureSentry:
             "sys.modules",
             {
                 "sentry_sdk": mock_sentry,
+                "sentry_sdk.integrations": mocker.MagicMock(),
                 "sentry_sdk.integrations.logging": mocker.MagicMock(
                     LoggingIntegration=mock_logging_integration
                 ),
@@ -106,6 +121,7 @@ class TestConfigureSentry:
             "sys.modules",
             {
                 "sentry_sdk": mock_sentry,
+                "sentry_sdk.integrations": mocker.MagicMock(),
                 "sentry_sdk.integrations.logging": mocker.MagicMock(
                     LoggingIntegration=mock_logging_integration
                 ),
@@ -138,6 +154,7 @@ class TestConfigureSentry:
             "sys.modules",
             {
                 "sentry_sdk": mock_sentry,
+                "sentry_sdk.integrations": mocker.MagicMock(),
                 "sentry_sdk.integrations.logging": mocker.MagicMock(
                     LoggingIntegration=mock_logging_integration
                 ),
@@ -170,7 +187,15 @@ class TestGetSentry:
     def test_returns_sentry_when_imported(self, mocker):
         """Test that sentry_sdk module is returned when imported."""
         mock_sentry = mocker.MagicMock()
-        mocker.patch.dict("sys.modules", {"sentry_sdk": mock_sentry})
+        mocker.patch.dict(
+            "sys.modules",
+            {
+                "sentry_sdk": mock_sentry,
+                "sentry_sdk.integrations": mocker.MagicMock(),
+                "sentry_sdk.integrations.logging": mocker.MagicMock(),
+                "sentry_sdk.integrations.opentelemetry": mocker.MagicMock(),
+            },
+        )
 
         from claude_telemetry.sentry_adapter import get_sentry  # noqa: PLC0415
 
@@ -180,7 +205,16 @@ class TestGetSentry:
 
     def test_returns_none_when_not_imported(self, mocker):
         """Test that None is returned when sentry_sdk not imported."""
-        mocker.patch.dict("sys.modules", {"sentry_sdk": None}, clear=False)
+        mocker.patch.dict(
+            "sys.modules",
+            {
+                "sentry_sdk": None,
+                "sentry_sdk.integrations": None,
+                "sentry_sdk.integrations.logging": None,
+                "sentry_sdk.integrations.opentelemetry": None,
+            },
+            clear=False,
+        )
 
         from claude_telemetry.sentry_adapter import get_sentry  # noqa: PLC0415
 
