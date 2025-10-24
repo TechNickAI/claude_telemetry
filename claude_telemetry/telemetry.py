@@ -22,8 +22,9 @@ def configure_telemetry(
     Priority order:
     1. Provided tracer_provider
     2. Logfire (if LOGFIRE_TOKEN is set)
-    3. OTEL environment variables
-    4. No-op tracer (telemetry disabled)
+    3. Sentry (if SENTRY_DSN is set)
+    4. OTEL environment variables
+    5. No-op tracer (telemetry disabled)
 
     Args:
         tracer_provider: Optional custom tracer provider
@@ -70,6 +71,25 @@ def configure_telemetry(
             )
             raise RuntimeError(f"Failed to configure Logfire telemetry: {e}") from e
 
+    # Check for Sentry configuration
+    if os.getenv("SENTRY_DSN"):
+        try:
+            from claude_telemetry.sentry_adapter import configure_sentry  # noqa: PLC0415
+
+            provider = configure_sentry(service_name)
+            logger.info("🔒 Sentry LLM monitoring configured → https://sentry.io")
+            return provider  # noqa: TRY300
+        except ImportError as e:
+            logger.error("❌ SENTRY_DSN set but sentry-sdk not installed!")
+            logger.error("   Run: pip install sentry-sdk")
+            raise RuntimeError(
+                "Sentry DSN provided but sentry-sdk package not installed"
+            ) from e
+        except Exception as e:
+            logger.error(f"❌ Failed to configure Sentry: {e}")
+            logger.error("   Check your SENTRY_DSN is valid at https://sentry.io")
+            raise RuntimeError(f"Failed to configure Sentry telemetry: {e}") from e
+
     # Check for OTEL configuration
     otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     if otel_endpoint:
@@ -99,11 +119,15 @@ Configure one of the following:
    export LOGFIRE_TOKEN="your_token_here"
    pip install "claude_telemetry[logfire]"
 
-2. Any OTEL backend:
+2. Sentry (for LLM monitoring with error tracking):
+   export SENTRY_DSN="https://your-key@sentry.io/project-id"
+   pip install sentry-sdk
+
+3. Any OTEL backend:
    export OTEL_EXPORTER_OTLP_ENDPOINT="https://api.honeycomb.io"
    export OTEL_EXPORTER_OTLP_HEADERS="x-honeycomb-team=your_key"
 
-3. Debug mode (console output only):
+4. Debug mode (console output only):
    export CLAUDE_TELEMETRY_DEBUG=1
 
 See https://github.com/TechNickAI/claude_telemetry for more details.
