@@ -13,6 +13,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+## [0.5.0] - 2025-10-24
+
+### Added
+
+- **Sentry LLM Monitoring Support**: First-class integration with Sentry's AI
+  Performance monitoring
+  - `sentry_adapter.py` following Logfire pattern (native SDK config, OTEL API
+    execution)
+  - Automatic configuration via `SENTRY_DSN` environment variable
+  - `gen_ai.*` attributes for Sentry's AI Monitoring dashboard
+  - Full integration with Sentry's error tracking + LLM monitoring
+  - Token usage tracking, cost analysis, and tool execution visibility
+  - Comprehensive test suite with 91% coverage
+  - Complete documentation in README with setup instructions
+
 ## [0.2.1] - 2025-10-15
 
 ### Fixed
